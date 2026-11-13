@@ -5423,7 +5423,7 @@ function setSongVideoMode(mode) {
 
     const videoId = state.currentTrack.id;
     if (videoFrame) {
-      videoFrame.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&start=${curTime}&enablejsapi=1`;
+      videoFrame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&start=${curTime}&enablejsapi=1&origin=https://www.youtube.com&widget_referrer=https://www.youtube.com`;
     }
     showToast('Switched to Video mode 🎬');
   } else {
@@ -5448,6 +5448,11 @@ function setSongVideoMode(mode) {
 
 document.getElementById('np-mode-song-btn')?.addEventListener('click', () => setSongVideoMode('song'));
 document.getElementById('np-mode-video-btn')?.addEventListener('click', () => setSongVideoMode('video'));
+document.getElementById('np-video-open-yt-btn')?.addEventListener('click', () => {
+  if (state.currentTrack?.id) {
+    window.api.openExternalUrl(`https://www.youtube.com/watch?v=${state.currentTrack.id}`);
+  }
+});
 
 let npCloseTimer = null;
 
@@ -5597,7 +5602,7 @@ function syncNowPlayingUI() {
     const videoFrame = document.getElementById('np-video-frame');
     if (videoFrame && !videoFrame.src.includes(track.id)) {
       const curTime = Math.max(0, Math.floor(audio.currentTime || 0));
-      videoFrame.src = `https://www.youtube-nocookie.com/embed/${track.id}?autoplay=1&start=${curTime}&enablejsapi=1`;
+      videoFrame.src = `https://www.youtube.com/embed/${track.id}?autoplay=1&start=${curTime}&enablejsapi=1&origin=https://www.youtube.com&widget_referrer=https://www.youtube.com`;
     }
   }
 
@@ -5762,6 +5767,28 @@ commentPostBtn?.addEventListener('click', postCommentAction);
 const songInfoModal = document.getElementById('song-info-modal');
 const songInfoModalClose = document.getElementById('song-info-modal-close');
 
+function formatSongDate(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return '--';
+  const clean = dateStr.trim();
+  if (/^\d{4}$/.test(clean)) return clean;
+  try {
+    const d = new Date(clean);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+  } catch (_) {}
+  return clean;
+}
+
+function formatCompactNumber(num) {
+  const n = Number(num);
+  if (isNaN(n) || n === 0) return num || '--';
+  if (n >= 1e9) return (n / 1e9).toFixed(1).replace(/\.0$/, '') + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+  return n.toLocaleString();
+}
+
 async function openSongInfoModal() {
   if (!state.currentTrack?.id) {
     showToast('Select a song to view stats & info');
@@ -5774,38 +5801,82 @@ async function openSongInfoModal() {
   const artistEl = document.getElementById('info-track-artist');
   const coverEl = document.getElementById('info-track-cover');
   const viewsEl = document.getElementById('info-stat-views');
+  const viewsBadge = document.getElementById('info-stat-views-badge');
   const likesEl = document.getElementById('info-stat-likes');
+  const likesBadge = document.getElementById('info-stat-likes-badge');
   const dislikesEl = document.getElementById('info-stat-dislikes');
+  const dislikesBadge = document.getElementById('info-stat-dislikes-badge');
   const ratingEl = document.getElementById('info-stat-rating');
+  const ratingBadge = document.getElementById('info-stat-rating-badge');
   const ratingPctEl = document.getElementById('info-rating-pct');
   const ratingFillEl = document.getElementById('info-rating-fill');
   const dateEl = document.getElementById('info-stat-date');
   const formatEl = document.getElementById('info-stat-format');
   const durationEl = document.getElementById('info-stat-duration');
   const descEl = document.getElementById('info-stat-description');
+  const qualityBadge = document.getElementById('info-badge-quality');
+  const statusBadge = document.getElementById('info-badge-status');
 
   if (titleEl) titleEl.textContent = track.title || 'Unknown Title';
   if (artistEl) artistEl.textContent = cleanArtistName(track.artist || 'Unknown Artist');
-  if (coverEl) coverEl.src = upgradeCover(track.thumbnail, 400);
+
+  if (coverEl) {
+    const coverSrc = upgradeCover(track.thumbnail, 400);
+    coverEl.src = coverSrc;
+    const needsCrop = /i\.ytimg\.com\/vi\/[^/]+\/(hqdefault|sddefault|0)\.jpg/i.test(coverSrc) || (track.thumbnail && track.thumbnail.includes('ytimg.com'));
+    coverEl.classList.toggle('yt-crop-letterbox', Boolean(needsCrop));
+  }
 
   const qualMap = { high: 'M4A • 256 kbps (High Fidelity)', standard: 'OPUS • 160 kbps (Standard)', low: 'AAC • 64 kbps (Data Saver)' };
   if (formatEl) formatEl.textContent = qualMap[settings.audioQuality] || 'OPUS • 160 kbps (Standard)';
   if (durationEl) durationEl.textContent = track.duration || formatTime(audio.duration || 0);
 
+  if (qualityBadge) {
+    qualityBadge.textContent = settings.audioQuality === 'high' ? 'High-Res Audio • 256k' : 'Standard Stream';
+  }
+  if (statusBadge) {
+    statusBadge.textContent = 'Official Release';
+  }
+
   if (viewsEl) viewsEl.textContent = 'Loading...';
+  if (viewsBadge) viewsBadge.textContent = '';
   if (likesEl) likesEl.textContent = 'Loading...';
+  if (likesBadge) likesBadge.textContent = '';
   if (dislikesEl) dislikesEl.textContent = 'Loading...';
+  if (dislikesBadge) dislikesBadge.textContent = '';
   if (ratingEl) ratingEl.textContent = 'Loading...';
+  if (ratingBadge) ratingBadge.textContent = '';
   if (dateEl) dateEl.textContent = 'Loading...';
   if (descEl) descEl.textContent = 'Fetching description & metadata...';
+
+  const btnOpenYt = document.getElementById('info-open-yt-btn');
+  if (btnOpenYt) {
+    btnOpenYt.onclick = () => {
+      window.api.openExternalUrl(`https://www.youtube.com/watch?v=${track.id}`);
+    };
+  }
+  const btnCopyStats = document.getElementById('info-copy-details-btn');
+  if (btnCopyStats) {
+    btnCopyStats.onclick = () => {
+      const summaryText = `Track: ${track.title} - ${cleanArtistName(track.artist)}\nRelease: ${dateEl ? dateEl.textContent : ''}\nViews: ${viewsEl ? viewsEl.textContent : ''}\nLikes: ${likesEl ? likesEl.textContent : ''}\nRating: ${ratingEl ? ratingEl.textContent : ''}\nLink: https://www.youtube.com/watch?v=${track.id}`;
+      navigator.clipboard.writeText(summaryText)
+        .then(() => showToast('Song info & stats copied to clipboard! 📋'))
+        .catch(() => showToast('Could not copy to clipboard', 'error'));
+    };
+  }
 
   try {
     const details = await window.api.getTrackDetails(track.id);
     if (!details) return;
 
     if (viewsEl) viewsEl.textContent = typeof details.views === 'number' ? Number(details.views).toLocaleString() : (details.views || '--');
+    if (viewsBadge) viewsBadge.textContent = details.views ? formatCompactNumber(details.views) : '';
+
     if (likesEl) likesEl.textContent = typeof details.likes === 'number' ? Number(details.likes).toLocaleString() : (details.likes || '--');
+    if (likesBadge) likesBadge.textContent = details.likes ? formatCompactNumber(details.likes) : '';
+
     if (dislikesEl) dislikesEl.textContent = typeof details.dislikes === 'number' ? Number(details.dislikes).toLocaleString() : (details.dislikes || '--');
+    if (dislikesBadge) dislikesBadge.textContent = details.dislikes ? formatCompactNumber(details.dislikes) : '';
 
     const totalVotes = (Number(details.likes) || 0) + (Number(details.dislikes) || 0);
     let pct = 100;
@@ -5815,10 +5886,11 @@ async function openSongInfoModal() {
       pct = Math.round((details.rating / 5) * 100);
     }
     if (ratingEl) ratingEl.textContent = `${pct}% Positive (${details.rating ? details.rating + '/5' : 'Excellent'})`;
-    if (ratingPctEl) ratingPctEl.textContent = `Community Approval: ${pct}%`;
+    if (ratingBadge) ratingBadge.textContent = pct >= 95 ? '★ Superb' : pct >= 80 ? '★ Great' : '★ Good';
+    if (ratingPctEl) ratingPctEl.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px; margin-right: 4px;"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>Community Approval: ${pct}%`;
     if (ratingFillEl) ratingFillEl.style.width = `${pct}%`;
 
-    if (dateEl) dateEl.textContent = details.uploadDate || track.year || 'Available on YouTube Music';
+    if (dateEl) dateEl.textContent = formatSongDate(details.uploadDate || track.year) || 'Available on YouTube Music';
     if (descEl) descEl.textContent = details.description || 'No detailed description provided by creator.';
   } catch (err) {
     console.warn('Song info notice:', err.message);

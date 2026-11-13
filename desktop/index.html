@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>OpenTune - Desktop</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -2217,7 +2218,13 @@
           <img id="np-cover-img" class="np-cover-img" src="assets/icon.png" alt="Album Cover">
         </div>
         <div id="np-video-container" class="np-video-container" style="display: none;">
-          <iframe id="np-video-frame" class="np-video-frame" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+          <iframe id="np-video-frame" class="np-video-frame" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+          <div id="np-video-fallback-bar" class="np-video-fallback-bar">
+            <button id="np-video-open-yt-btn" class="btn-subtle btn-compact" type="button" title="Open video in external browser">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+              Watch on YouTube ↗
+            </button>
+          </div>
         </div>
         <div id="np-lyrics-container" class="np-lyrics-container" style="display: none;">
           <div id="np-lyrics-content" class="lyrics-container">
@@ -2397,69 +2404,92 @@
     <div id="song-info-modal" class="modal-overlay" style="display: none;">
       <div class="modal-card song-info-modal-card">
         <div class="modal-header">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11 17h2v-6h-2v6zm1-15C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zM11 9h2V7h-2v2z"/></svg>
-            <h2 class="modal-title" style="margin: 0;">Song Info & Stats</h2>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="modal-icon-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11 17h2v-6h-2v6zm1-15C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zM11 9h2V7h-2v2z"/></svg>
+            </div>
+            <div>
+              <h2 class="modal-title" style="margin: 0; font-size: 1.15rem; font-weight: 700;">Song Info & Stats</h2>
+              <span class="modal-subtitle" style="font-size: 0.76rem; color: var(--text-muted);">Real-time engagement, ratings & technical audio info</span>
+            </div>
           </div>
           <button id="song-info-modal-close" class="modal-close-btn" type="button" title="Close Song Info">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
           </button>
         </div>
 
         <div class="song-info-body">
           <div class="song-info-hero">
-            <img id="info-track-cover" class="song-info-cover" src="assets/icon.png" alt="Cover">
+            <div class="song-info-cover-wrap">
+              <img id="info-track-cover" class="song-info-cover" src="assets/icon.png" alt="Cover">
+            </div>
             <div class="song-info-hero-text">
               <h3 id="info-track-title" class="song-info-title">Song Title</h3>
               <p id="info-track-artist" class="song-info-artist">Artist</p>
+              <div class="hero-badges-row">
+                <span id="info-badge-quality" class="hero-badge">High-Res Audio</span>
+                <span id="info-badge-status" class="hero-badge">Official Release</span>
+              </div>
             </div>
           </div>
 
           <div class="song-stats-grid">
-            <div class="song-stat-card">
-              <div class="stat-icon-wrap" style="color: #64b5f6;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+            <div class="song-stat-card stat-card-views">
+              <div class="stat-icon-wrap icon-wrap-views">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
               </div>
               <div class="stat-meta">
                 <span class="stat-label">Total Views</span>
-                <span id="info-stat-views" class="stat-value">--</span>
+                <div class="stat-value-wrap">
+                  <span id="info-stat-views" class="stat-value">--</span>
+                  <span id="info-stat-views-badge" class="stat-pill-badge"></span>
+                </div>
               </div>
             </div>
 
-            <div class="song-stat-card">
-              <div class="stat-icon-wrap" style="color: #81c784;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
+            <div class="song-stat-card stat-card-likes">
+              <div class="stat-icon-wrap icon-wrap-likes">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
               </div>
               <div class="stat-meta">
                 <span class="stat-label">Likes</span>
-                <span id="info-stat-likes" class="stat-value">--</span>
+                <div class="stat-value-wrap">
+                  <span id="info-stat-likes" class="stat-value">--</span>
+                  <span id="info-stat-likes-badge" class="stat-pill-badge"></span>
+                </div>
               </div>
             </div>
 
-            <div class="song-stat-card">
-              <div class="stat-icon-wrap" style="color: #e57373;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"/></svg>
+            <div class="song-stat-card stat-card-dislikes">
+              <div class="stat-icon-wrap icon-wrap-dislikes">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"/></svg>
               </div>
               <div class="stat-meta">
                 <span class="stat-label">Dislikes</span>
-                <span id="info-stat-dislikes" class="stat-value">--</span>
+                <div class="stat-value-wrap">
+                  <span id="info-stat-dislikes" class="stat-value">--</span>
+                  <span id="info-stat-dislikes-badge" class="stat-pill-badge"></span>
+                </div>
               </div>
             </div>
 
-            <div class="song-stat-card">
-              <div class="stat-icon-wrap" style="color: #ffd54f;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            <div class="song-stat-card stat-card-rating">
+              <div class="stat-icon-wrap icon-wrap-rating">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
               </div>
               <div class="stat-meta">
                 <span class="stat-label">Community Rating</span>
-                <span id="info-stat-rating" class="stat-value">--</span>
+                <div class="stat-value-wrap">
+                  <span id="info-stat-rating" class="stat-value">--</span>
+                  <span id="info-stat-rating-badge" class="stat-pill-badge"></span>
+                </div>
               </div>
             </div>
           </div>
 
           <div class="song-rating-bar-wrap">
             <div class="song-rating-labels">
-              <span id="info-rating-pct">Rating: --%</span>
+              <span id="info-rating-pct"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -2px; margin-right: 4px;"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>Community Approval: --%</span>
               <span id="info-ratio-text">Real-time Likes vs Dislikes</span>
             </div>
             <div class="song-rating-track">
@@ -2469,22 +2499,44 @@
 
           <div class="song-details-table">
             <div class="song-detail-row">
-              <span class="detail-label">Release / Upload Date</span>
+              <span class="detail-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></svg>
+                Release / Upload Date
+              </span>
               <span id="info-stat-date" class="detail-value">--</span>
             </div>
             <div class="song-detail-row">
-              <span class="detail-label">Audio Stream Format</span>
+              <span class="detail-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                Audio Stream Quality
+              </span>
               <span id="info-stat-format" class="detail-value">--</span>
             </div>
             <div class="song-detail-row">
-              <span class="detail-label">Track Duration</span>
+              <span class="detail-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                Track Duration
+              </span>
               <span id="info-stat-duration" class="detail-value">--</span>
             </div>
           </div>
 
           <div class="song-desc-section">
-            <h4 class="song-desc-title">Description & Credits</h4>
+            <div class="song-desc-header">
+              <h4 class="song-desc-title">Description & Credits</h4>
+            </div>
             <div id="info-stat-description" class="song-desc-content">No description loaded.</div>
+          </div>
+
+          <div class="song-info-footer-actions">
+            <button id="info-open-yt-btn" class="btn-subtle btn-compact" type="button" title="Open song on YouTube">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+              Watch on YouTube
+            </button>
+            <button id="info-copy-details-btn" class="btn-subtle btn-compact" type="button" title="Copy metadata to clipboard">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+              Copy Song Stats
+            </button>
           </div>
         </div>
       </div>

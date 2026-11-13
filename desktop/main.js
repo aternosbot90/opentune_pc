@@ -1105,6 +1105,31 @@ app.on('child-process-gone', (_e, details) => {
 
 app.whenReady().then(() => {
   session.defaultSession.setUserAgent(CHROME_USER_AGENT);
+
+  // Fix YouTube Embed Error 153 in Electron: spoof Referer & Origin for all YouTube requests
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: ['*://*.youtube.com/*', '*://*.youtube-nocookie.com/*', '*://*.googlevideo.com/*'] },
+    (details, callback) => {
+      details.requestHeaders['Referer'] = 'https://www.youtube.com/';
+      details.requestHeaders['Origin'] = 'https://www.youtube.com';
+      delete details.requestHeaders['X-Requested-With'];
+      callback({ cancel: false, requestHeaders: details.requestHeaders });
+    }
+  );
+
+  // Strip X-Frame-Options and restrictive CSP to prevent embed blocking
+  session.defaultSession.webRequest.onHeadersReceived(
+    { urls: ['*://*.youtube.com/*', '*://*.youtube-nocookie.com/*'] },
+    (details, callback) => {
+      const responseHeaders = { ...details.responseHeaders };
+      delete responseHeaders['x-frame-options'];
+      delete responseHeaders['X-Frame-Options'];
+      delete responseHeaders['content-security-policy'];
+      delete responseHeaders['Content-Security-Policy'];
+      callback({ cancel: false, responseHeaders });
+    }
+  );
+
   createMainWindow();
 
   app.on('activate', () => {
