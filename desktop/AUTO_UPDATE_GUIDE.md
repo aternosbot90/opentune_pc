@@ -214,3 +214,4 @@ On macOS, Gatekeeper may flag unsigned binaries downloaded from the internet. Wh
   xattr -cr /Applications/OpenTune.app
   ```
 - In-app updates via the `.zip` archive will unpack directly into `/Applications/OpenTune.app`.
+
