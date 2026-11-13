@@ -34,6 +34,17 @@ const streamService = require('./stream');
 const lyricsService = require('./lyrics');
 const ytMusic = require('./ytmusic');
 
+let autoUpdater = null;
+try {
+  const updaterModule = require('electron-updater');
+  autoUpdater = updaterModule.autoUpdater;
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.allowPrerelease = false;
+} catch (e) {
+  console.warn('electron-updater init notice:', e.message);
+}
+
 // Global safety net to prevent app from closing/crashing on unexpected async errors
 process.on('uncaughtException', (err) => {
   console.error('Safe caught uncaughtException in main process:', err?.stack || err?.message || err);
@@ -1101,6 +1112,95 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
   return { exists: false };
 });
 
+// --- In-App Auto Updates (electron-updater for Windows & macOS) ---
+if (autoUpdater) {
+  autoUpdater.on('checking-for-update', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-status', { status: 'checking' });
+    }
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-status', {
+        status: 'available',
+        version: info.version,
+        releaseDate: info.releaseDate,
+        releaseNotes: info.releaseNotes
+      });
+    }
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-status', {
+        status: 'not-available',
+        version: info?.version || app.getVersion()
+      });
+    }
+  });
+
+  autoUpdater.on('error', (err) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-status', {
+        status: 'error',
+        error: err ? err.message : 'Unknown updater error'
+      });
+    }
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-status', {
+        status: 'downloading',
+        percent: Math.round(progressObj.percent || 0),
+        transferred: progressObj.transferred,
+        total: progressObj.total,
+        bytesPerSecond: progressObj.bytesPerSecond
+      });
+    }
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-status', {
+        status: 'downloaded',
+        version: info.version
+      });
+    }
+  });
+}
+
+ipcMain.handle('get-app-version', () => app.getVersion());
+
+ipcMain.handle('check-for-updates', async () => {
+  if (!autoUpdater) return { success: false, error: 'Auto-updater is not available in development mode' };
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { success: true, updateInfo: result?.updateInfo };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('download-update', async () => {
+  if (!autoUpdater) return { success: false, error: 'Auto-updater is not available in development mode' };
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('install-update-now', () => {
+  if (autoUpdater) {
+    autoUpdater.quitAndInstall(false, true);
+    return true;
+  }
+  return false;
+});
+
 app.on('child-process-gone', (_e, details) => {
   console.error('Child process gone:', details.type, details.reason);
 });
@@ -1133,6 +1233,13 @@ app.whenReady().then(() => {
   );
 
   createMainWindow();
+
+  // Background auto-check for updates on startup (packaged builds only)
+  setTimeout(() => {
+    if (autoUpdater && app.isPackaged) {
+      autoUpdater.checkForUpdates().catch(e => console.warn('Auto update check notice:', e.message));
+    }
+  }, 6000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();

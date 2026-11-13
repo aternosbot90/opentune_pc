@@ -1650,10 +1650,29 @@
               <div class="setting-row">
                 <div class="setting-label-col">
                   <div class="setting-label">About OpenTune Desktop Edition</div>
-                  <div class="setting-desc">Version 3.0.8 • Open source YouTube Music client with Material Design 3 Expressive.</div>
+                  <div class="setting-desc">Open source YouTube Music client with Material Design 3 Expressive.</div>
                 </div>
                 <div class="setting-control-col">
-                  <span style="font-size: 0.88rem; font-weight: 700; color: var(--accent);">v3.0.8</span>
+                  <span id="setting-app-version-badge" style="font-size: 0.88rem; font-weight: 700; color: var(--accent);">v3.0.8</span>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Software Updates</div>
+                  <div id="setting-update-status-text" class="setting-desc">Check for the latest version for Windows &amp; macOS directly from GitHub Releases.</div>
+                  <div id="setting-update-progress-wrap" class="update-banner-progress-wrap" style="display: none; margin-top: 6px; width: 100%; max-width: 280px;">
+                    <div id="setting-update-progress-bar" class="update-banner-progress-bar" style="width: 0%;"></div>
+                  </div>
+                </div>
+                <div class="setting-control-col" style="gap: 8px;">
+                  <button id="btn-check-for-updates" class="btn-subtle" style="padding: 7px 14px; font-weight: 600;" type="button">
+                    <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor" style="width: 15px; height: 15px; margin-right: 4px;"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+                    Check for Updates
+                  </button>
+                  <button id="btn-install-update-now" class="btn-primary-action" style="padding: 7px 14px; display: none;" type="button">
+                    Restart &amp; Install
+                  </button>
                 </div>
               </div>
             </div>
@@ -2612,6 +2631,26 @@
           <div class="tweaker-actions">
             <button id="tweaker-reset-btn" class="btn-subtle" type="button">Reset to Default</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- In-App Auto Update Floating Banner (Material 3 pill) -->
+    <div id="app-update-banner" class="app-update-banner" style="display: none;">
+      <div class="update-banner-content">
+        <div class="update-banner-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14v-4H8l4-5 4 5h-3v4h-2z"/></svg>
+        </div>
+        <div class="update-banner-text">
+          <span id="update-banner-title" class="update-banner-title">New Update Available!</span>
+          <span id="update-banner-desc" class="update-banner-desc">An update is available to download.</span>
+          <div id="update-banner-progress-wrap" class="update-banner-progress-wrap" style="display: none;">
+            <div id="update-banner-progress-bar" class="update-banner-progress-bar" style="width: 0%;"></div>
+          </div>
+        </div>
+        <div class="update-banner-actions">
+          <button id="update-banner-action-btn" class="btn-primary-action btn-compact" type="button">Download</button>
+          <button id="update-banner-dismiss-btn" class="btn-subtle btn-compact" type="button" title="Dismiss">&times;</button>
         </div>
       </div>
     </div>

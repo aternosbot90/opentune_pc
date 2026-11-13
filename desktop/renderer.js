@@ -7784,6 +7784,131 @@ function initLibraryBentoListeners() {
   });
 }
 
+// --- In-App Auto Update System (Windows & macOS) ---
+function initAppUpdaterUI() {
+  const banner = document.getElementById('app-update-banner');
+  const bannerTitle = document.getElementById('update-banner-title');
+  const bannerDesc = document.getElementById('update-banner-desc');
+  const bannerActionBtn = document.getElementById('update-banner-action-btn');
+  const bannerDismissBtn = document.getElementById('update-banner-dismiss-btn');
+  const bannerProgressWrap = document.getElementById('update-banner-progress-wrap');
+  const bannerProgressBar = document.getElementById('update-banner-progress-bar');
+
+  const settingStatusText = document.getElementById('setting-update-status-text');
+  const settingProgressWrap = document.getElementById('setting-update-progress-wrap');
+  const settingProgressBar = document.getElementById('setting-update-progress-bar');
+  const btnCheckUpdates = document.getElementById('btn-check-for-updates');
+  const btnInstallNow = document.getElementById('btn-install-update-now');
+  const versionBadge = document.getElementById('setting-app-version-badge');
+
+  if (window.api?.getAppVersion) {
+    window.api.getAppVersion().then(ver => {
+      if (ver && versionBadge) versionBadge.textContent = `v${ver}`;
+    }).catch(() => {});
+  }
+
+  bannerDismissBtn?.addEventListener('click', () => {
+    if (banner) banner.style.display = 'none';
+  });
+
+  btnInstallNow?.addEventListener('click', () => {
+    window.api?.installUpdateNow();
+  });
+
+  btnCheckUpdates?.addEventListener('click', async () => {
+    btnCheckUpdates.disabled = true;
+    const oldText = btnCheckUpdates.innerHTML;
+    btnCheckUpdates.innerHTML = 'Checking...';
+    if (settingStatusText) settingStatusText.textContent = 'Contacting GitHub Releases server...';
+
+    try {
+      const res = await window.api?.checkForUpdates();
+      if (!res?.success) {
+        if (settingStatusText) settingStatusText.textContent = res?.error || 'Could not check for updates.';
+        showToast(res?.error || 'Update check failed', 'error');
+      }
+    } catch (err) {
+      if (settingStatusText) settingStatusText.textContent = `Error: ${err.message}`;
+    } finally {
+      setTimeout(() => {
+        btnCheckUpdates.disabled = false;
+        btnCheckUpdates.innerHTML = oldText;
+      }, 2000);
+    }
+  });
+
+  if (window.api?.onUpdateStatus) {
+    window.api.onUpdateStatus((data) => {
+      if (!data) return;
+
+      if (data.status === 'checking') {
+        if (settingStatusText) settingStatusText.textContent = 'Checking for updates on GitHub...';
+      } else if (data.status === 'available') {
+        const verStr = data.version ? `v${data.version}` : 'New version';
+        if (settingStatusText) settingStatusText.textContent = `Update ${verStr} available! Click download to proceed.`;
+        if (banner) {
+          if (bannerTitle) bannerTitle.textContent = `Update ${verStr} Available!`;
+          if (bannerDesc) bannerDesc.textContent = `A new version of OpenTune is ready to download.`;
+          if (bannerActionBtn) {
+            bannerActionBtn.textContent = 'Download';
+            bannerActionBtn.style.display = 'inline-flex';
+            bannerActionBtn.disabled = false;
+            bannerActionBtn.onclick = () => {
+              bannerActionBtn.disabled = true;
+              bannerActionBtn.textContent = 'Downloading...';
+              window.api?.downloadUpdate();
+            };
+          }
+          if (bannerProgressWrap) bannerProgressWrap.style.display = 'none';
+          banner.style.display = 'block';
+        }
+      } else if (data.status === 'not-available') {
+        const verStr = data.version ? `v${data.version}` : '';
+        if (settingStatusText) settingStatusText.textContent = `OpenTune is up to date (${verStr}).`;
+      } else if (data.status === 'downloading') {
+        const pct = Math.max(0, Math.min(100, Number(data.percent) || 0));
+        if (settingStatusText) settingStatusText.textContent = `Downloading update: ${pct}%...`;
+        if (settingProgressWrap) {
+          settingProgressWrap.style.display = 'block';
+          if (settingProgressBar) settingProgressBar.style.width = `${pct}%`;
+        }
+        if (banner) {
+          banner.style.display = 'block';
+          if (bannerTitle) bannerTitle.textContent = `Downloading Update (${pct}%)...`;
+          if (bannerDesc) bannerDesc.textContent = `Please wait while the update downloads in the background.`;
+          if (bannerProgressWrap) {
+            bannerProgressWrap.style.display = 'block';
+            if (bannerProgressBar) bannerProgressBar.style.width = `${pct}%`;
+          }
+          if (bannerActionBtn) bannerActionBtn.style.display = 'none';
+        }
+      } else if (data.status === 'downloaded') {
+        const verStr = data.version ? `v${data.version}` : '';
+        if (settingStatusText) settingStatusText.textContent = `Update ${verStr} downloaded successfully! Restart to apply.`;
+        if (settingProgressWrap) settingProgressWrap.style.display = 'none';
+        if (btnInstallNow) btnInstallNow.style.display = 'inline-flex';
+
+        if (banner) {
+          banner.style.display = 'block';
+          if (bannerTitle) bannerTitle.textContent = `Update ${verStr} Ready to Install!`;
+          if (bannerDesc) bannerDesc.textContent = `Restart OpenTune to finish applying the update.`;
+          if (bannerProgressWrap) bannerProgressWrap.style.display = 'none';
+          if (bannerActionBtn) {
+            bannerActionBtn.style.display = 'inline-flex';
+            bannerActionBtn.textContent = 'Restart & Install';
+            bannerActionBtn.disabled = false;
+            bannerActionBtn.onclick = () => window.api?.installUpdateNow();
+          }
+        }
+        showToast(`OpenTune ${verStr} downloaded! Ready to install. 🎉`, 'info', 5000);
+      } else if (data.status === 'error') {
+        if (settingStatusText) settingStatusText.textContent = `Update check notice: ${data.error}`;
+        if (banner) banner.style.display = 'none';
+      }
+    });
+  }
+}
+
 async function init() {
   initCustomSelects();
   loadSettings();
@@ -7839,6 +7964,7 @@ async function init() {
       }
     } catch (_) {}
   });
+  initAppUpdaterUI();
 }
 
 init();

@@ -14,12 +14,19 @@
     "build": "npm run build:portable && npm run build:installer",
     "build:mac": "node scripts/bundle-mac-bin.js && electron-builder --mac dmg --universal",
     "build:mac-arm64": "node scripts/bundle-mac-bin.js && electron-builder --mac dmg --arm64",
-    "build:mac-x64": "node scripts/bundle-mac-bin.js && electron-builder --mac dmg --x64"
+    "build:mac-x64": "node scripts/bundle-mac-bin.js && electron-builder --mac dmg --x64",
+    "publish:win": "electron-builder --win nsis --x64 --publish always",
+    "publish:mac": "node scripts/bundle-mac-bin.js && electron-builder --mac dmg zip --universal --publish always"
   },
   "build": {
     "appId": "com.arturo254.opentune.desktop",
     "productName": "OpenTune",
     "copyright": "Copyright © 2026 OpenTune Project",
+    "publish": {
+      "provider": "github",
+      "owner": "aternosbot90",
+      "repo": "opentune_pc"
+    },
     "asar": true,
     "directories": {
       "output": "dist"
@@ -28,11 +35,15 @@
       "target": [
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/icon.png"
@@ -55,11 +66,15 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["universal"]
+          "arch": [
+            "universal"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["universal"]
+          "arch": [
+            "universal"
+          ]
         }
       ]
     },
@@ -68,15 +83,25 @@
       "title": "OpenTune ${version}",
       "icon": "assets/icon.png",
       "contents": [
-        { "x": 130, "y": 220 },
-        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "extraResources": [
       {
         "from": "bin",
         "to": "bin",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "files": [
@@ -93,6 +118,7 @@
     ]
   },
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "youtubei.js": "^18.3.0"
   },
   "devDependencies": {

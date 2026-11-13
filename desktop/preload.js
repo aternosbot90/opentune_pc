@@ -63,5 +63,16 @@ contextBridge.exposeInMainWorld('api', {
   // YouTube Music Playlist Cloud Sync
   createYtPlaylist: (payload) => ipcRenderer.invoke('create-yt-playlist', payload),
   addToYtPlaylist: (payload) => ipcRenderer.invoke('add-to-yt-playlist', payload),
-  removeFromYtPlaylist: (payload) => ipcRenderer.invoke('remove-from-yt-playlist', payload)
+  removeFromYtPlaylist: (payload) => ipcRenderer.invoke('remove-from-yt-playlist', payload),
+
+  // In-App Auto Updates (Windows & macOS)
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  installUpdateNow: () => ipcRenderer.invoke('install-update-now'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  onUpdateStatus: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('update-status', listener);
+    return () => ipcRenderer.removeListener('update-status', listener);
+  }
 });
