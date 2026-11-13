@@ -15,8 +15,8 @@
     "build:mac": "node scripts/bundle-mac-bin.js && electron-builder --mac dmg --universal",
     "build:mac-arm64": "node scripts/bundle-mac-bin.js && electron-builder --mac dmg --arm64",
     "build:mac-x64": "node scripts/bundle-mac-bin.js && electron-builder --mac dmg --x64",
-    "publish:win": "electron-builder --win nsis --x64 --publish always",
-    "publish:mac": "node scripts/bundle-mac-bin.js && electron-builder --mac dmg zip --universal --publish always"
+    "publish:win": "node scripts/publish-runner.js win",
+    "publish:mac": "node scripts/publish-runner.js mac"
   },
   "build": {
     "appId": "com.arturo254.opentune.desktop",
