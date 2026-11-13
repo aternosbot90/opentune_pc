@@ -117,9 +117,8 @@ ipcMain.handle('set-mini-player', (_event, arg) => {
 
     const pipWidth = 412;
     const pipHeight = 216;
-    mainWindow.setMaximumSize(0, 0);
     mainWindow.setMinimumSize(360, 196);
-    mainWindow.setMaximumSize(560, 290);
+    mainWindow.setMaximumSize(640, 340);
     mainWindow.setSize(pipWidth, pipHeight);
 
     // Keep PiP anchored inside current display workArea
@@ -136,7 +135,7 @@ ipcMain.handle('set-mini-player', (_event, arg) => {
   } else {
     isMiniPlayerMode = false;
     mainWindow.setAlwaysOnTop(false);
-    mainWindow.setMaximumSize(0, 0);
+    mainWindow.setMaximumSize(10000, 10000);
     mainWindow.setMinimumSize(940, 620);
 
     if (savedNormalBounds) {

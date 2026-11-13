@@ -1528,7 +1528,7 @@ function openDrawer(panel) {
   if (panel === 'lyrics') {
     drawerTitle.textContent = 'Synchronized Lyrics';
     if (lyricsActions) lyricsActions.style.display = 'inline-flex';
-    lyricsView.style.display = 'block';
+    lyricsView.style.display = 'flex';
     queueView.style.display = 'none';
     requestAnimationFrame(() => refreshLyricsViewsNow(true, true));
   } else {
@@ -1720,8 +1720,14 @@ function renderLyrics(lines) {
     buildLyricLineContent(el, line.text);
     el.addEventListener('click', () => {
       if (settings.lyricsClickSeek === false) return;
+      lyricsScrollPause.drawerUntil = 0;
+      lyricsScrollPause.npUntil = 0;
+      updateLyricsResyncPills();
       audio.currentTime = Math.max(0, line.time - (state.lyricsOffset || 0));
       refreshVisualFrame(true);
+      requestAnimationFrame(() => {
+        centerScrollLyricElement(lyricsView, el, true);
+      });
     });
     lyricDomCache.drawer.push(cacheLyricWords(el));
     drawerFrag.appendChild(el);
@@ -1733,8 +1739,14 @@ function renderLyrics(lines) {
       buildLyricLineContent(npEl, line.text);
       npEl.addEventListener('click', () => {
         if (settings.lyricsClickSeek === false) return;
+        lyricsScrollPause.drawerUntil = 0;
+        lyricsScrollPause.npUntil = 0;
+        updateLyricsResyncPills();
         audio.currentTime = Math.max(0, line.time - (state.lyricsOffset || 0));
         refreshVisualFrame(true);
+        requestAnimationFrame(() => {
+          centerScrollLyricElement(npLyricsContent, npEl, true);
+        });
       });
       lyricDomCache.np.push(cacheLyricWords(npEl));
       npFrag.appendChild(npEl);
@@ -1894,7 +1906,7 @@ function updateLyricsResyncPills() {
 
   const drawerBox = document.querySelector('#side-drawer .drawer-content');
   const npBox = document.getElementById('np-lyrics-container');
-  ['wheel', 'touchstart', 'pointerdown'].forEach((evt) => {
+  ['wheel', 'touchmove'].forEach((evt) => {
     drawerBox?.addEventListener(evt, pauseDrawer, { passive: true });
     npBox?.addEventListener(evt, pauseNp, { passive: true });
   });
@@ -2281,15 +2293,7 @@ function moveUpcomingQueueItem(fromQueueIdx, toQueueIdx) {
     savePersistentQueue();
     preloadAdjacentTracks();
   } else {
-    if (!prevPrioritySet.has(fromQueueIdx) && !prevPrioritySet.has(toQueueIdx)) {
-      moveQueueItem(fromQueueIdx, toQueueIdx);
-    } else if (prevPrioritySet.has(fromQueueIdx) && !prevPrioritySet.has(toQueueIdx)) {
-      moveQueueItem(fromQueueIdx, toQueueIdx);
-    } else {
-      renderQueue();
-      savePersistentQueue();
-      preloadAdjacentTracks();
-    }
+    moveQueueItem(fromQueueIdx, toQueueIdx);
   }
 }
 
@@ -2379,7 +2383,7 @@ function renderNowPlayingQueue() {
     if (!track) return;
     const { isCurrent = false, isPast = false, isUpcoming = false, upcomingPos = -1, upcomingLen = 0, isPriorityNext = false } = options;
     const row = document.createElement('div');
-    row.className = `np-queue-item ${isCurrent ? 'active' : ''} ${isPast ? 'played-past' : ''} ${state.npQueueEditing && isUpcoming ? 'queue-editing' : ''}`;
+    row.className = `np-queue-item ${isCurrent ? 'active' : ''} ${isPast ? 'played-past' : ''} ${state.npQueueEditing && isUpcoming ? 'np-queue-editing' : ''}`;
     row.dataset.queueIndex = String(index);
     row.draggable = Boolean(isUpcoming);
 
@@ -2392,14 +2396,14 @@ function renderNowPlayingQueue() {
     const actionsHtml = isUpcoming
       ? `
         <div class="np-queue-actions">
-          <button class="track-action-btn np-move-up" title="Move up" ${upcomingPos <= 0 ? 'disabled' : ''}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+          <button type="button" class="track-action-btn np-move-up" title="Move up" ${upcomingPos <= 0 ? 'disabled' : ''}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
           </button>
-          <button class="track-action-btn np-move-down" title="Move down" ${upcomingPos >= upcomingLen - 1 ? 'disabled' : ''}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+          <button type="button" class="track-action-btn np-move-down" title="Move down" ${upcomingPos >= upcomingLen - 1 ? 'disabled' : ''}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
           </button>
-          <button class="track-action-btn np-remove-queue" title="Remove from queue">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          <button type="button" class="track-action-btn np-remove-queue" title="Remove from queue">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
           </button>
         </div>
       `
@@ -2420,6 +2424,35 @@ function renderNowPlayingQueue() {
     `;
 
     if (isUpcoming) {
+      const btnUp = row.querySelector('.np-move-up');
+      const btnDown = row.querySelector('.np-move-down');
+      const btnRemove = row.querySelector('.np-remove-queue');
+
+      btnUp?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (upcomingPos > 0) {
+          moveUpcomingQueueItem(index, upcomingIndices[upcomingPos - 1]);
+          renderNowPlayingQueue();
+        }
+      });
+
+      btnDown?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (upcomingPos < upcomingLen - 1) {
+          moveUpcomingQueueItem(index, upcomingIndices[upcomingPos + 1]);
+          renderNowPlayingQueue();
+        }
+      });
+
+      btnRemove?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        removeQueueItemAt(index);
+        renderNowPlayingQueue();
+      });
+
       row.addEventListener('dragstart', () => {
         draggedNpQueueIdx = index;
         row.classList.add('dragging-row');
@@ -2445,26 +2478,13 @@ function renderNowPlayingQueue() {
         row.classList.remove('drag-over-top', 'drag-over-bottom');
         if (draggedNpQueueIdx !== -1 && draggedNpQueueIdx !== index) {
           moveUpcomingQueueItem(draggedNpQueueIdx, index);
+          renderNowPlayingQueue();
         }
       });
     }
 
     row.addEventListener('click', (e) => {
-      if (isUpcoming && e.target.closest('.np-move-up')) {
-        e.stopPropagation();
-        if (upcomingPos > 0) moveUpcomingQueueItem(index, upcomingIndices[upcomingPos - 1]);
-        return;
-      }
-      if (isUpcoming && e.target.closest('.np-move-down')) {
-        e.stopPropagation();
-        if (upcomingPos < upcomingLen - 1) moveUpcomingQueueItem(index, upcomingIndices[upcomingPos + 1]);
-        return;
-      }
-      if (isUpcoming && e.target.closest('.np-remove-queue')) {
-        e.stopPropagation();
-        removeQueueItemAt(index);
-        return;
-      }
+      if (e.target.closest('.track-action-btn, button, .np-queue-actions')) return;
       playTrack(track, null, index);
     });
     npList.appendChild(row);

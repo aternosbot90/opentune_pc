@@ -2533,7 +2533,7 @@ body[data-slider-style="simple"] .progress-thumb {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 120;
+  z-index: 2000;
   background: radial-gradient(circle at center, rgba(30, 15, 20, 0.96) 0%, rgba(11, 12, 14, 0.99) 100%);
   backdrop-filter: blur(42px);
   -webkit-backdrop-filter: blur(42px);
@@ -3773,24 +3773,40 @@ button .spinner,
 .np-queue-actions {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
 .np-queue-actions .track-action-btn {
-  opacity: 0;
-  color: rgba(255, 255, 255, 0.78);
-  padding: 4px;
+  opacity: 0.65;
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  border: 1px solid var(--glass-border-light);
+  border-radius: 6px;
+  padding: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.16s ease, background 0.16s ease, transform 0.12s ease;
 }
 
 .np-queue-item:hover .np-queue-actions .track-action-btn,
-.np-queue-item.np-queue-editing .np-queue-actions .track-action-btn {
+.np-queue-item.np-queue-editing .np-queue-actions .track-action-btn,
+.np-queue-item.queue-editing .np-queue-actions .track-action-btn {
   opacity: 1;
 }
 
+.np-queue-actions .track-action-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: #ffffff !important;
+  transform: scale(1.08);
+}
+
 .np-queue-actions .track-action-btn:disabled {
-  opacity: 0.25 !important;
+  opacity: 0.22 !important;
   cursor: not-allowed;
+  transform: none;
 }
 
 .np-queue-thumb {
@@ -4181,7 +4197,11 @@ body.mini-player-mode #sidebar-backdrop,
 body.mini-player-mode .side-drawer,
 body.mini-player-mode .now-playing-fullscreen,
 body.mini-player-mode .modal-overlay,
-body.mini-player-mode .song-context-menu {
+body.mini-player-mode .song-context-menu,
+body.mini-player-mode .search-container,
+body.mini-player-mode .nav-history,
+body.mini-player-mode .main-wrapper,
+body.mini-player-mode .ambient-glow-container {
   display: none !important;
 }
 
@@ -4819,6 +4839,38 @@ body.light-theme .now-playing-fullscreen .meta-pill {
   background: rgba(15, 20, 40, 0.06) !important;
   border-color: rgba(15, 20, 40, 0.1) !important;
   color: rgba(18, 20, 24, 0.72) !important;
+}
+
+body.light-theme .np-queue-actions .track-action-btn {
+  color: #1a1e29 !important;
+  background: rgba(15, 20, 40, 0.08) !important;
+  border-color: rgba(15, 20, 40, 0.14) !important;
+}
+body.light-theme .np-queue-actions .track-action-btn:hover:not(:disabled) {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+}
+
+/* Light Theme Lyrics Enhanced Contrast */
+body.light-theme .lyrics-line {
+  color: #586074 !important;
+}
+body.light-theme .lyrics-line.active {
+  color: #0d1017 !important;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+}
+body.light-theme .lyrics-line.dist-1 {
+  color: #383f52 !important;
+}
+body.light-theme .lyrics-line.dist-2 {
+  color: #6a7388 !important;
+}
+body.light-theme .lyrics-line.dist-far {
+  color: #949db2 !important;
+}
+body.light-theme .lyrics-line:hover {
+  color: #0d1017 !important;
+  background: rgba(15, 20, 40, 0.07) !important;
 }
 
 /* Now Playing Fine Alignment */
