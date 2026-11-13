@@ -46,6 +46,8 @@ process.on('unhandledRejection', (reason) => {
 // Disable automation detection so Google Account login works smoothly
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
 app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling');
+// Allow audio & Web Audio API AudioContext to autoplay reliably without requiring explicit user gestures
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 let mainWindow = null;
 let savedNormalBounds = null;

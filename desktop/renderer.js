@@ -869,6 +869,8 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
     audio.removeAttribute('src');
     audio.load();
   } catch (_) {}
+  state.isPlaying = false;
+  updatePlayPauseUI();
 
   state.currentTrack = track;
 
@@ -944,36 +946,55 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
 
   if (localFile && localFile.exists && localFile.fileUrl) {
     if (typeof ensureEqualizerReady === 'function') ensureEqualizerReady();
+    if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
+      eqAudioCtx.resume().catch(() => {});
+    }
     audio.src = localFile.fileUrl;
     audio.volume = state.isMuted ? 0 : state.volume;
     audio.playbackRate = currentPlaybackSpeed;
     if (options?.startTime && options.startTime > 0) {
       audio.currentTime = options.startTime;
     }
-    audio.load();
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise
-        .then(() => {
-          if (requestToken !== state.playRequestToken) {
-            audio.pause();
-            return;
-          }
-          state.isPlaying = true;
-          updatePlayPauseUI();
-          preloadAdjacentTracks();
-        })
-        .catch((err) => {
+
+    const startLocalPlayback = async () => {
+      if (requestToken !== state.playRequestToken) return;
+      try {
+        if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
+          await eqAudioCtx.resume().catch(() => {});
+        }
+        await audio.play();
+        if (requestToken !== state.playRequestToken) {
+          audio.pause();
+          return;
+        }
+        state.isPlaying = true;
+        updatePlayPauseUI();
+        preloadAdjacentTracks();
+      } catch (err) {
+        if (requestToken !== state.playRequestToken) return;
+        console.warn('Local audio play notice:', err.message);
+        const onCanPlay = async () => {
+          audio.removeEventListener('canplay', onCanPlay);
           if (requestToken !== state.playRequestToken) return;
-          console.warn('Local audio play promise notice:', err.message);
-          state.isPlaying = false;
-          updatePlayPauseUI();
-        });
-    } else {
-      state.isPlaying = true;
-      updatePlayPauseUI();
-      preloadAdjacentTracks();
-    }
+          try {
+            if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
+              await eqAudioCtx.resume().catch(() => {});
+            }
+            await audio.play();
+            state.isPlaying = true;
+            updatePlayPauseUI();
+            preloadAdjacentTracks();
+          } catch (retryErr) {
+            console.warn('Local retry play failed:', retryErr.message);
+            state.isPlaying = false;
+            updatePlayPauseUI();
+          }
+        };
+        audio.addEventListener('canplay', onCanPlay, { once: true });
+      }
+    };
+    startLocalPlayback();
+
     fetchLyrics(track);
     updateMediaSession(track);
     updateNpDownloadButtonState(track.id, true);
@@ -996,36 +1017,55 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
 
     if (res.success && res.url) {
       if (typeof ensureEqualizerReady === 'function') ensureEqualizerReady();
+      if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
+        eqAudioCtx.resume().catch(() => {});
+      }
       audio.src = res.url;
       audio.volume = state.isMuted ? 0 : state.volume;
       audio.playbackRate = currentPlaybackSpeed;
       if (options?.startTime && options.startTime > 0) {
         audio.currentTime = options.startTime;
       }
-      audio.load();
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            if (requestToken !== state.playRequestToken) {
-              audio.pause();
-              return;
-            }
-            state.isPlaying = true;
-            updatePlayPauseUI();
-            preloadAdjacentTracks();
-          })
-          .catch((err) => {
+
+      const startOnlinePlayback = async () => {
+        if (requestToken !== state.playRequestToken) return;
+        try {
+          if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
+            await eqAudioCtx.resume().catch(() => {});
+          }
+          await audio.play();
+          if (requestToken !== state.playRequestToken) {
+            audio.pause();
+            return;
+          }
+          state.isPlaying = true;
+          updatePlayPauseUI();
+          preloadAdjacentTracks();
+        } catch (err) {
+          if (requestToken !== state.playRequestToken) return;
+          console.warn('Audio play attempt notice:', err.message);
+          const onCanPlay = async () => {
+            audio.removeEventListener('canplay', onCanPlay);
             if (requestToken !== state.playRequestToken) return;
-            console.warn('Audio play promise notice:', err.message);
-            state.isPlaying = false;
-            updatePlayPauseUI();
-          });
-      } else {
-        state.isPlaying = true;
-        updatePlayPauseUI();
-        preloadAdjacentTracks();
-      }
+            try {
+              if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
+                await eqAudioCtx.resume().catch(() => {});
+              }
+              await audio.play();
+              state.isPlaying = true;
+              updatePlayPauseUI();
+              preloadAdjacentTracks();
+            } catch (retryErr) {
+              console.warn('Retry play failed:', retryErr.message);
+              state.isPlaying = false;
+              updatePlayPauseUI();
+            }
+          };
+          audio.addEventListener('canplay', onCanPlay, { once: true });
+        }
+      };
+      startOnlinePlayback();
+
       fetchLyrics(track);
       updateMediaSession(track);
       if (settings.trackNotifications && document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
@@ -1100,14 +1140,29 @@ btnPlayPause.addEventListener('click', () => {
     });
     return;
   }
+  if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
+    eqAudioCtx.resume().catch(() => {});
+  }
   if (audio.paused) {
-    audio.play();
-    state.isPlaying = true;
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
+        state.isPlaying = true;
+        updatePlayPauseUI();
+      }).catch(err => {
+        console.warn('Play button click failed:', err.message);
+        state.isPlaying = false;
+        updatePlayPauseUI();
+      });
+    } else {
+      state.isPlaying = true;
+      updatePlayPauseUI();
+    }
   } else {
     audio.pause();
     state.isPlaying = false;
+    updatePlayPauseUI();
   }
-  updatePlayPauseUI();
 });
 
 btnNext.addEventListener('click', () => {
@@ -1406,10 +1461,20 @@ function startVisualAnimLoop() {
 }
 
 audio.addEventListener('play', () => {
+  state.isPlaying = true;
+  updatePlayPauseUI();
+  startVisualAnimLoop();
+});
+
+audio.addEventListener('playing', () => {
+  state.isPlaying = true;
+  updatePlayPauseUI();
   startVisualAnimLoop();
 });
 
 audio.addEventListener('pause', () => {
+  state.isPlaying = false;
+  updatePlayPauseUI();
   if (visualAnimRafId) {
     cancelAnimationFrame(visualAnimRafId);
     visualAnimRafId = null;
@@ -6470,6 +6535,15 @@ function ensureEqualizerReady() {
     console.warn('Equalizer init skipped (direct playback active):', err.message);
   }
 }
+
+// Global gesture unlock for Web Audio context to ensure instant playback without delay
+const unlockAudioContextOnGesture = () => {
+  if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
+    eqAudioCtx.resume().catch(() => {});
+  }
+};
+window.addEventListener('pointerdown', unlockAudioContextOnGesture, { passive: true });
+window.addEventListener('keydown', unlockAudioContextOnGesture, { passive: true });
 
 function renderEqBandsUI() {
   const container = document.getElementById('eq-bands-container');
