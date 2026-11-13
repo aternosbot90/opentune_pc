@@ -7819,6 +7819,18 @@ function initAppUpdaterUI() {
   const btnInstallNow = document.getElementById('btn-install-update-now');
   const versionBadge = document.getElementById('setting-app-version-badge');
 
+  function formatUpdaterErrorMessage(rawError = '') {
+    const errStr = String(rawError || '');
+    if (errStr.includes('404') && (errStr.includes('releases.atom') || errStr.includes('authentication token') || errStr.includes('latest.yml'))) {
+      return 'No published releases found on GitHub. Make sure repository is Public and releases are Published (not Draft).';
+    }
+    if (errStr.includes('ERR_INTERNET_DISCONNECTED') || errStr.includes('ENOTFOUND')) {
+      return 'Cannot connect to GitHub. Please check your internet connection.';
+    }
+    const firstLine = errStr.split('\n')[0].replace(/^Error:\s*/i, '').trim();
+    return firstLine.slice(0, 160) || 'Could not check for updates.';
+  }
+
   if (window.api?.getAppVersion) {
     window.api.getAppVersion().then(ver => {
       if (ver && versionBadge) versionBadge.textContent = `v${ver}`;
@@ -7842,11 +7854,13 @@ function initAppUpdaterUI() {
     try {
       const res = await window.api?.checkForUpdates();
       if (!res?.success) {
-        if (settingStatusText) settingStatusText.textContent = res?.error || 'Could not check for updates.';
-        showToast(res?.error || 'Update check failed', 'error');
+        const cleanErr = formatUpdaterErrorMessage(res?.error);
+        if (settingStatusText) settingStatusText.textContent = cleanErr;
+        showToast(cleanErr, 'error');
       }
     } catch (err) {
-      if (settingStatusText) settingStatusText.textContent = `Error: ${err.message}`;
+      const cleanErr = formatUpdaterErrorMessage(err.message);
+      if (settingStatusText) settingStatusText.textContent = cleanErr;
     } finally {
       setTimeout(() => {
         btnCheckUpdates.disabled = false;
@@ -7920,7 +7934,8 @@ function initAppUpdaterUI() {
         }
         showToast(`OpenTune ${verStr} downloaded! Ready to install. 🎉`, 'info', 5000);
       } else if (data.status === 'error') {
-        if (settingStatusText) settingStatusText.textContent = `Update check notice: ${data.error}`;
+        const cleanErr = formatUpdaterErrorMessage(data.error);
+        if (settingStatusText) settingStatusText.textContent = cleanErr;
         if (banner) banner.style.display = 'none';
       }
     });
