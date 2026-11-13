@@ -2192,6 +2192,9 @@ lyricsSearchQueryInput?.addEventListener('keydown', (e) => {
 document.getElementById('lyrics-search-modal-close')?.addEventListener('click', closeLyricsSearchModal);
 document.getElementById('btn-search-lyrics-open')?.addEventListener('click', openLyricsSearchModal);
 document.getElementById('np-btn-search-lyrics')?.addEventListener('click', openLyricsSearchModal);
+lyricsSearchModal?.addEventListener('click', (e) => {
+  if (e.target === lyricsSearchModal) closeLyricsSearchModal();
+});
 
 // --- Lyrics Editor & Sync Offset Modal ---
 const lyricsEditModal = document.getElementById('lyrics-edit-modal');
@@ -2283,6 +2286,9 @@ document.getElementById('lyrics-edit-cancel-btn')?.addEventListener('click', clo
 document.getElementById('lyrics-edit-modal-close')?.addEventListener('click', closeLyricsEditModal);
 document.getElementById('btn-edit-lyrics-open')?.addEventListener('click', openLyricsEditModal);
 document.getElementById('np-btn-edit-lyrics')?.addEventListener('click', openLyricsEditModal);
+lyricsEditModal?.addEventListener('click', (e) => {
+  if (e.target === lyricsEditModal) closeLyricsEditModal();
+});
 
 // Queue Management, Edit Mode & Drag-and-Drop Reorder
 let draggedQueueIdx = -1;
@@ -5747,6 +5753,9 @@ document.getElementById('np-quick-comments-btn')?.addEventListener('click', open
 commentsModalClose?.addEventListener('click', () => {
   if (commentsModal) commentsModal.style.display = 'none';
 });
+commentsModal?.addEventListener('click', (e) => {
+  if (e.target === commentsModal) commentsModal.style.display = 'none';
+});
 commentPostBtn?.addEventListener('click', postCommentAction);
 
 // Song Info & Stats Modal (Likes, Dislikes, Rating, Views, Release Date)
@@ -5821,6 +5830,9 @@ document.getElementById('np-track-format-pill')?.addEventListener('click', openS
 document.getElementById('np-quick-info-btn')?.addEventListener('click', openSongInfoModal);
 songInfoModalClose?.addEventListener('click', () => {
   if (songInfoModal) songInfoModal.style.display = 'none';
+});
+songInfoModal?.addEventListener('click', (e) => {
+  if (e.target === songInfoModal) songInfoModal.style.display = 'none';
 });
 
 // Sleep Timer System (Matching OpenTune Android SleepTimer)
@@ -5986,6 +5998,9 @@ document.getElementById('player-speed-btn')?.addEventListener('click', openSpeed
 document.getElementById('np-speed-btn')?.addEventListener('click', openSpeedPitchModal);
 speedPitchModalClose?.addEventListener('click', () => {
   if (speedPitchModal) speedPitchModal.style.display = 'none';
+});
+speedPitchModal?.addEventListener('click', (e) => {
+  if (e.target === speedPitchModal) speedPitchModal.style.display = 'none';
 });
 
 // Google Sign-In & Login Modal (Device Auth + Webview + Cookie)
