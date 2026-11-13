@@ -214,6 +214,12 @@ desktop/
 Stop-Process -Name "OpenTune" -Force
 ```
 
+#### Q: On macOS, it says "OpenTune is not verified" or "cannot be opened because Apple cannot check it"?
+**A**: This is macOS Gatekeeper protecting against unnotarized open-source apps. You can open it in 3 ways:
+1. **Right-Click Open**: In Finder, go to `/Applications`, **Right-click (or Control-click)** `OpenTune.app`, and click **Open**. Click **Open** again in the prompt.
+2. **System Settings**: Go to **System Settings** > **Privacy & Security** > scroll to Security > click **"Open Anyway"**.
+3. **Terminal**: Run `sudo xattr -cr /Applications/OpenTune.app` to remove the quarantine attribute.
+
 #### Q: How does offline playback work?
 **A**: Downloaded songs are saved to your user music folder under `OpenTune/`. OpenTune checks local storage before contacting any remote streaming servers. If the track is downloaded, it plays with 0ms network latency.
 
