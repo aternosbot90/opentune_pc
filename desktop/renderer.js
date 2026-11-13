@@ -13,6 +13,16 @@ window.addEventListener('unhandledrejection', function (event) {
 
 // State
 // High-Resolution Cover Art Helper
+function cleanArtistName(raw) {
+  if (!raw || typeof raw !== 'string') return '';
+  const cleaned = raw
+    .replace(/\s*[-–—]\s*topic\b/gi, '')
+    .replace(/\s*\(topic\)\s*/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return cleaned || raw.trim();
+}
+
 function upgradeCover(url, size = 544) {
   if (!url || typeof url !== 'string') return 'assets/icon.png';
   let clean = url.trim();
@@ -570,7 +580,7 @@ async function openArtistByNameOrId(artistId, artistName, onBeforeNavigate = nul
     return openArtistDetail(cleanId);
   }
 
-  const rawName = typeof artistName === 'string' ? artistName.trim() : '';
+  const rawName = cleanArtistName(typeof artistName === 'string' ? artistName.trim() : '');
   if (!rawName || rawName === 'Unknown Artist' || rawName === 'Ready to play' || rawName === 'Various Artists') {
     return;
   }
@@ -645,7 +655,7 @@ function navigateToAlbumFromTrack(track) {
 }
 
 function splitArtistNamesBySetting(rawArtistStr) {
-  const text = String(rawArtistStr || '').trim();
+  const text = cleanArtistName(String(rawArtistStr || '')).trim();
   if (!text) return ['Unknown Artist'];
   const rawSymbols = (typeof settings !== 'undefined' && settings.artistSplitSymbols)
     ? settings.artistSplitSymbols
@@ -663,16 +673,19 @@ function splitArtistNamesBySetting(rawArtistStr) {
 function renderArtistLinksHtml(track) {
   if (Array.isArray(track?.artistLinks) && track.artistLinks.length > 0) {
     return track.artistLinks.map((a, idx) => {
+      const cleanName = cleanArtistName(a.name);
       const idAttr = a.id ? `data-artist-id="${String(a.id).replace(/"/g, '&quot;')}"` : '';
-      return `<span class="clickable-artist-link" ${idAttr} data-artist-name="${String(a.name).replace(/"/g, '&quot;')}">${a.name}</span>${idx < track.artistLinks.length - 1 ? ', ' : ''}`;
+      return `<span class="clickable-artist-link" ${idAttr} data-artist-name="${String(cleanName).replace(/"/g, '&quot;')}">${cleanName}</span>${idx < track.artistLinks.length - 1 ? ', ' : ''}`;
     }).join('');
   }
-  const names = splitArtistNamesBySetting(track?.artist || 'Unknown Artist');
+  const cleanTrackArtist = cleanArtistName(track?.artist || 'Unknown Artist');
+  const names = splitArtistNamesBySetting(cleanTrackArtist);
   return names.map((name, idx) => {
+    const cleanName = cleanArtistName(name);
     const idAttr = (idx === 0 && track?.artistId && names.length === 1)
       ? `data-artist-id="${String(track.artistId).replace(/"/g, '&quot;')}"`
       : '';
-    return `<span class="clickable-artist-link" ${idAttr} data-artist-name="${String(name).replace(/"/g, '&quot;')}">${name}</span>`;
+    return `<span class="clickable-artist-link" ${idAttr} data-artist-name="${String(cleanName).replace(/"/g, '&quot;')}">${cleanName}</span>`;
   }).join(', ');
 }
 
@@ -682,7 +695,7 @@ function bindArtistLinksInContainer(container, fallbackTrack, onBeforeNavigate =
     el.addEventListener('click', (e) => {
       e.stopPropagation();
       const artistId = el.dataset.artistId || '';
-      const artistName = el.dataset.artistName || fallbackTrack?.artist || '';
+      const artistName = cleanArtistName(el.dataset.artistName || fallbackTrack?.artist || '');
       const resolvedId = artistId || ((fallbackTrack?.artistId && artistName === fallbackTrack.artist) ? fallbackTrack.artistId : '');
       openArtistByNameOrId(resolvedId, artistName, onBeforeNavigate);
     });
@@ -840,6 +853,11 @@ async function startRadioFromTrack(track) {
 
 async function playTrack(track, queue = null, explicitIndex = null, options = {}) {
   if (!track || !track.id) return;
+  if (track.artist) track.artist = cleanArtistName(track.artist);
+  if (Array.isArray(track.artists)) track.artists = track.artists.map(cleanArtistName);
+  if (Array.isArray(track.artistLinks)) {
+    track.artistLinks.forEach(a => { if (a && a.name) a.name = cleanArtistName(a.name); });
+  }
   const requestToken = ++state.playRequestToken;
 
   // Immediately silence & flush previous audio so songs NEVER overlap for 2-3 seconds while resolving
@@ -960,7 +978,7 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
     if (settings.trackNotifications && document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       try {
         new Notification(track.title || 'Now Playing', {
-          body: track.artist || 'OpenTune Desktop',
+          body: cleanArtistName(track.artist) || 'OpenTune Desktop',
           icon: upgradeCover(track.thumbnail, 256),
           silent: true
         });
@@ -1011,7 +1029,7 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
       if (settings.trackNotifications && document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         try {
           new Notification(track.title || 'Now Playing', {
-            body: track.artist || 'OpenTune Desktop',
+            body: cleanArtistName(track.artist) || 'OpenTune Desktop',
             icon: upgradeCover(track.thumbnail, 256),
             silent: true
           });
@@ -2417,7 +2435,7 @@ function renderNowPlayingQueue() {
           <span class="np-queue-title">${track.title || 'Unknown'}</span>
           ${isPriorityNext ? '<span class="queue-next-pill">Next</span>' : ''}
         </div>
-        <span class="np-queue-artist">${track.artist || 'Unknown Artist'}</span>
+        <span class="np-queue-artist">${cleanArtistName(track.artist) || 'Unknown Artist'}</span>
       </div>
       <span class="np-queue-dur">${track.duration || ''}</span>
       ${actionsHtml}
@@ -2774,7 +2792,7 @@ function updateMediaSession(track) {
       const hasArtwork = track.thumbnail && track.thumbnail.startsWith('http');
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.title || 'Unknown Title',
-        artist: track.artist || 'Unknown Artist',
+        artist: cleanArtistName(track.artist) || 'Unknown Artist',
         album: track.album || 'OpenTune Music',
         artwork: hasArtwork ? [{ src: upgradeCover(track.thumbnail, 512), sizes: '512x512', type: 'image/jpeg' }] : []
       });
@@ -7171,7 +7189,7 @@ function syncAodOverlay() {
     if (img) img.src = cover;
     if (bg) bg.style.backgroundImage = cover && cover !== 'assets/icon.png' ? `url("${cover}")` : 'none';
     if (titleEl) titleEl.textContent = track.title || 'OpenTune';
-    if (artistEl) artistEl.textContent = track.artist || 'Unknown Artist';
+    if (artistEl) artistEl.textContent = cleanArtistName(track.artist) || 'Unknown Artist';
   }
   updatePlayPauseUI();
 }

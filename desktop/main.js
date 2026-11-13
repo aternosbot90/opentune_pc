@@ -607,6 +607,16 @@ function resolveDownloadBaseDir(overrideDir) {
   return getDefaultDownloadDir();
 }
 
+function cleanArtistName(raw) {
+  if (!raw || typeof raw !== 'string') return '';
+  const cleaned = raw
+    .replace(/\s*[-–—]\s*topic\b/gi, '')
+    .replace(/\s*\(topic\)\s*/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return cleaned || raw.trim();
+}
+
 function sanitizeFilename(name) {
   const cleaned = String(name || 'Untitled')
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
@@ -870,7 +880,7 @@ ipcMain.handle('download-playlist', async (event, { title, tracks, downloadDir }
       const i = nextTrackIndex++;
       const track = tracks[i];
       const trackNum = String(i + 1).padStart(2, '0');
-      const safeArtist = sanitizeFilename(track?.artist || 'Unknown Artist');
+      const safeArtist = sanitizeFilename(cleanArtistName(track?.artist) || 'Unknown Artist');
       const safeTitle = sanitizeFilename(track?.title || 'Track');
       const baseName = `${trackNum} - ${safeArtist} - ${safeTitle}`;
       let trackSucceeded = false;
@@ -950,7 +960,7 @@ ipcMain.handle('download-single-track', async (_event, payload) => {
     fs.mkdirSync(baseDir, { recursive: true });
   }
 
-  const safeArtist = sanitizeFilename(track?.artist || 'Unknown Artist');
+  const safeArtist = sanitizeFilename(cleanArtistName(track?.artist) || 'Unknown Artist');
   const safeTitle = sanitizeFilename(track?.title || 'Track');
   const baseName = `${safeArtist} - ${safeTitle}`;
 
@@ -972,12 +982,15 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
   const rootDir = resolveDownloadBaseDir(customDir);
   if (!fs.existsSync(rootDir)) return { exists: false };
 
-  const safeArtist = sanitizeFilename(track.artist || 'Unknown Artist');
+  const cleanArt = cleanArtistName(track.artist || 'Unknown Artist');
+  const safeArtist = sanitizeFilename(cleanArt);
+  const rawSafeArtist = sanitizeFilename(track.artist || 'Unknown Artist');
   const safeTitle = sanitizeFilename(track.title || 'Track');
   const exts = ['.m4a', '.webm', '.opus', '.mp3', '.mp4', '.ogg'];
 
   const candidateNames = [
     `${safeArtist} - ${safeTitle}`,
+    `${rawSafeArtist} - ${safeTitle}`,
     `${safeTitle}`,
     safeTitle,
     videoId

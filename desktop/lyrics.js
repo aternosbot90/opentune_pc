@@ -28,7 +28,11 @@ function parseLrc(lrcText) {
 async function getLyrics(trackName, artistName, durationSec) {
   try {
     const cleanTrack = (trackName || '').replace(/\(.*?\)|\[.*?\]|feat\..*|ft\..*/gi, '').trim();
-    const cleanArtist = (artistName || '').replace(/,.*|&.*/gi, '').trim();
+    const cleanArtist = (artistName || '')
+      .replace(/\s*[-–—]\s*topic\b/gi, '')
+      .replace(/\s*\(topic\)\s*/gi, '')
+      .replace(/,.*|&.*/gi, '')
+      .trim();
 
     // 1. Try exact get
     const query = new URLSearchParams({

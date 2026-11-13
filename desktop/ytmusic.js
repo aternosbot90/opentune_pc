@@ -281,6 +281,16 @@ function upgradeThumbnail(url, size = 544) {
 }
 
 // Format helpers
+function cleanArtistName(raw) {
+  if (!raw || typeof raw !== 'string') return '';
+  const cleaned = raw
+    .replace(/\s*[-–—]\s*topic\b/gi, '')
+    .replace(/\s*\(topic\)\s*/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return cleaned || raw.trim();
+}
+
 function extractBrowseIdByType(runs, pageTypeMatch, prefixMatch) {
   if (!Array.isArray(runs)) return '';
   for (const run of runs) {
@@ -320,7 +330,8 @@ function formatSongItem(item, defaultAlbum = '') {
   let artists = [];
   const artistLinks = [];
   const pushArtist = (name, channelId = '') => {
-    const cleanName = typeof name === 'string' ? name.trim() : '';
+    let cleanName = typeof name === 'string' ? name.trim() : '';
+    cleanName = cleanArtistName(cleanName);
     if (!cleanName || cleanName === '•' || cleanName === ',' || cleanName === '&') return;
     if (!artists.includes(cleanName)) artists.push(cleanName);
     if (!artistLinks.some(a => a.name === cleanName)) {
@@ -404,7 +415,7 @@ function formatSongItem(item, defaultAlbum = '') {
     if (metaArtist) pushArtist(metaArtist, '');
   }
 
-  const artist = artists.filter(Boolean).join(', ') || 'Unknown Artist';
+  const artist = cleanArtistName(artists.filter(Boolean).join(', ')) || 'Unknown Artist';
   const primaryArtistId = artistLinks.find(a => a.id)?.id || '';
   let duration = item.duration?.text || (typeof item.duration === 'string' ? item.duration : '') || '';
   if (typeof item.duration === 'object' && item.duration?.text) duration = item.duration.text;
@@ -450,10 +461,10 @@ function formatAlbumItem(item) {
   let releaseType = '';
 
   if (Array.isArray(item.artists) && item.artists.length > 0) {
-    artist = item.artists.map(a => a.name || a.text || '').filter(Boolean).join(', ');
+    artist = item.artists.map(a => cleanArtistName(a.name || a.text || '')).filter(Boolean).join(', ');
     artistId = item.artists.find(a => a.channel_id || a.id)?.channel_id || item.artists.find(a => a.id)?.id || '';
   } else if (item.author?.name) {
-    artist = item.author.name;
+    artist = cleanArtistName(item.author.name);
     artistId = item.author.channel_id || item.author.id || '';
   } else if (item.flex_columns && item.flex_columns[1]?.title?.text) {
     const runs = item.flex_columns[1]?.title?.runs || [];
@@ -462,7 +473,7 @@ function formatAlbumItem(item) {
     for (const part of parts) {
       if (/^(Album|Single|EP)$/i.test(part)) releaseType = part;
       else if (/^(19\d{2}|20\d{2})$/.test(part)) year = part;
-      else if (!artist) artist = part;
+      else if (!artist) artist = cleanArtistName(part);
     }
   } else if (item.subtitle?.text) {
     const runs = item.subtitle?.runs || [];
@@ -471,7 +482,7 @@ function formatAlbumItem(item) {
     for (const part of parts) {
       if (/^(Album|Single|EP)$/i.test(part)) releaseType = part;
       else if (/^(19\d{2}|20\d{2})$/.test(part)) year = part;
-      else if (!artist) artist = part;
+      else if (!artist) artist = cleanArtistName(part);
     }
   }
 
@@ -528,6 +539,7 @@ function formatArtistItem(item) {
 
   let name = item.name || item.title?.text || (typeof item.title === 'string' ? item.title : '') || 'Artist';
   if (typeof name !== 'string') name = String(name);
+  name = cleanArtistName(name);
 
   let subscribers = item.subscribers?.text || '';
   if (!subscribers && item.flex_columns && item.flex_columns[1]?.title?.text) {
@@ -783,9 +795,9 @@ async function getAlbum(albumId) {
     if (!albTitle || albTitle === 'Untitled Playlist' || albTitle === 'Untitled Album') {
       albTitle = pl.tracks?.[0]?.album || 'Album';
     }
-    let albArtist = pl.author || '';
+    let albArtist = cleanArtistName(pl.author || '');
     if (!albArtist || albArtist === 'YouTube Music' || albArtist === 'YouTube') {
-      albArtist = pl.tracks?.[0]?.artist || 'Various Artists';
+      albArtist = cleanArtistName(pl.tracks?.[0]?.artist || '') || 'Various Artists';
     }
     return {
       id: albumId,
@@ -814,7 +826,7 @@ async function getAlbum(albumId) {
           return {
             id: albumId,
             title: (pl.title || 'Untitled Album').replace(/^Album\s*[-–]\s*/i, ''),
-            artist: pl.author || 'Various Artists',
+            artist: cleanArtistName(pl.author || '') || 'Various Artists',
             artistId: pl.tracks[0]?.artistId || '',
             year: pl.tracks[0]?.year || '',
             releaseType: 'Album',
@@ -831,7 +843,7 @@ async function getAlbum(albumId) {
 
     const title = details.header?.title?.text || details.title || 'Untitled Album';
     const strapRuns = details.header?.strapline_text_one?.runs || [];
-    const artist = details.header?.strapline_text_one?.text || details.header?.author?.name || 'Various Artists';
+    const artist = cleanArtistName(details.header?.strapline_text_one?.text || details.header?.author?.name || 'Various Artists');
     const artistId = details.header?.strapline_text_one?.endpoint?.payload?.browseId || extractBrowseIdByType(strapRuns, 'ARTIST', 'UC') || '';
 
     const rawSubtitle = details.header?.subtitle?.text || details.header?.year?.text || '';
@@ -1038,9 +1050,9 @@ function parseTvPlaylistTile(tile) {
     if (line.includes('•')) {
       const parts = line.split('•').map(s => s.trim()).filter(Boolean);
       const authorPart = parts.find(p => !/playlist|auto playlist|view|track|song|video/i.test(p));
-      if (authorPart) author = authorPart;
+      if (authorPart) author = cleanArtistName(authorPart);
     } else if (!/playlist|track|song|video|view/i.test(line)) {
-      author = line;
+      author = cleanArtistName(line);
     }
   }
 
@@ -1077,7 +1089,7 @@ function parseTvVideoTile(tile) {
       .map(i => getTvText(i.lineItemRenderer?.text))
       .join(' ')
       .trim();
-    if (firstLineText) artist = firstLineText;
+    if (firstLineText) artist = cleanArtistName(firstLineText);
     for (const li of lineItems) {
       const bId = li.lineItemRenderer?.text?.runs?.[0]?.navigationEndpoint?.browseEndpoint?.browseId || '';
       if (bId && bId.startsWith('UC')) {
@@ -1305,7 +1317,7 @@ async function getArtist(artistId) {
       throw err;
     }
 
-    const name = res.header?.title?.text || res.name || 'Artist';
+    const name = cleanArtistName(res.header?.title?.text || res.name || 'Artist');
     const description = res.header?.description?.text || res.header?.description?.description?.text || '';
     let subscribers = res.header?.subscription_button?.subscribe?.subscriber_count_text?.text
       || res.header?.subscription_button?.subscriber_count_text?.text
