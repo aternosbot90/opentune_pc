@@ -12,9 +12,9 @@
     "build:installer": "electron-builder --win nsis --x64",
     "build:dir": "electron-builder --win dir --x64",
     "build": "npm run build:portable && npm run build:installer",
-    "build:mac": "electron-builder --mac dmg --universal",
-    "build:mac-arm64": "electron-builder --mac dmg --arm64",
-    "build:mac-x64": "electron-builder --mac dmg --x64"
+    "build:mac": "node scripts/bundle-mac-bin.js && electron-builder --mac dmg --universal",
+    "build:mac-arm64": "node scripts/bundle-mac-bin.js && electron-builder --mac dmg --arm64",
+    "build:mac-x64": "node scripts/bundle-mac-bin.js && electron-builder --mac dmg --x64"
   },
   "build": {
     "appId": "com.arturo254.opentune.desktop",

@@ -3,6 +3,33 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const { Readable } = require('stream');
+
+// Ensure macOS & Linux GUI apps inherit Homebrew, Local & UserData paths in process.env.PATH
+if (process.platform === 'darwin' || process.platform === 'linux') {
+  const extraPaths = [
+    '/opt/homebrew/bin',
+    '/opt/homebrew/sbin',
+    '/usr/local/bin',
+    '/usr/local/sbin',
+    '/usr/bin',
+    '/bin',
+    '/usr/sbin',
+    '/sbin'
+  ];
+  try {
+    const userData = app.getPath('userData');
+    extraPaths.unshift(path.join(userData, 'bin'));
+  } catch (_) {}
+  if (process.env.HOME) {
+    extraPaths.push(path.join(process.env.HOME, '.local', 'bin'));
+    extraPaths.push(path.join(process.env.HOME, 'bin'));
+  }
+  const currentPath = process.env.PATH || '';
+  const currentParts = currentPath.split(':').filter(Boolean);
+  const combined = Array.from(new Set([...extraPaths, ...currentParts]));
+  process.env.PATH = combined.join(':');
+}
+
 const streamService = require('./stream');
 const lyricsService = require('./lyrics');
 const ytMusic = require('./ytmusic');
@@ -723,8 +750,11 @@ async function downloadTrackAudioFile(track, destDir, baseName) {
   }
 
   // Attempt 2: Direct yt-dlp download with concurrent fragments
-  return new Promise((resolve, reject) => {
-    const ytDlpPath = streamService.getYtDlpPath();
+  return new Promise(async (resolve, reject) => {
+    let ytDlpPath = streamService.getYtDlpPath();
+    if (typeof streamService.ensureYtDlpBinary === 'function') {
+      try { ytDlpPath = await streamService.ensureYtDlpBinary(); } catch (_) {}
+    }
     const outTemplate = path.join(destDir, `${baseName}.%(ext)s`);
     const args = [
       '-f', 'bestaudio[ext=m4a]/bestaudio',
@@ -739,7 +769,7 @@ async function downloadTrackAudioFile(track, destDir, baseName) {
       `https://www.youtube.com/watch?v=${videoId}`
     ];
 
-    const child = spawn(ytDlpPath, args, { windowsHide: true });
+    const child = spawn(ytDlpPath, args, { windowsHide: true, env: process.env });
     activeDownloadChildren.add(child);
     let stderr = '';
     let settled = false;

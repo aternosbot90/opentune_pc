@@ -4,11 +4,27 @@ const fs = require('fs');
 const http = require('http');
 const { Readable } = require('stream');
 
+let electronApp = null;
+try {
+  const electron = require('electron');
+  electronApp = electron.app || null;
+} catch (_) {}
+
+function getUserDataBinDir() {
+  if (electronApp) {
+    try {
+      return path.join(electronApp.getPath('userData'), 'bin');
+    } catch (_) {}
+  }
+  return null;
+}
+
 const streamCache = new Map(); // cacheKey -> { url, expireAt }
 const inflightExtractions = new Map(); // cacheKey -> Promise<string>
 let proxyServer = null;
 let proxyPort = 0;
 let proxyInitPromise = null;
+let ytDlpProvisionPromise = null;
 
 function clearStreamCache() {
   streamCache.clear();
@@ -20,34 +36,164 @@ function getYtDlpPath() {
     ? ['yt-dlp.exe', 'yt-dlp']
     : (process.platform === 'darwin' ? ['yt-dlp_macos', 'yt-dlp'] : ['yt-dlp']);
 
+  // 1. Check user-data bin directory (auto-provisioned or updated binaries)
+  const userBinDir = getUserDataBinDir();
+  if (userBinDir) {
+    for (const binName of candidates) {
+      const userBin = path.join(userBinDir, binName);
+      if (fs.existsSync(userBin)) {
+        try { fs.chmodSync(userBin, 0o755); } catch (_) {}
+        return userBin;
+      }
+    }
+  }
+
+  // 2. Check packaged application resources (e.g. OpenTune.app/Contents/Resources/bin)
   if (process.resourcesPath) {
     for (const binName of candidates) {
       const packagedBin = path.join(process.resourcesPath, 'bin', binName);
       if (fs.existsSync(packagedBin)) {
+        try { fs.chmodSync(packagedBin, 0o755); } catch (_) {}
         return packagedBin;
       }
     }
   }
 
+  // 3. Check local source bin directory
   for (const binName of candidates) {
     const localBin = path.join(__dirname, 'bin', binName);
     if (fs.existsSync(localBin)) {
+      try { fs.chmodSync(localBin, 0o755); } catch (_) {}
       return localBin;
     }
   }
 
+  // 4. Check standard macOS & Linux system installation paths
   if (process.platform === 'darwin') {
-    for (const macPath of ['/opt/homebrew/bin/yt-dlp', '/usr/local/bin/yt-dlp', '/usr/bin/yt-dlp']) {
-      if (fs.existsSync(macPath)) return macPath;
+    const home = process.env.HOME || '';
+    const macPaths = [
+      '/opt/homebrew/bin/yt-dlp',
+      '/opt/homebrew/sbin/yt-dlp',
+      '/usr/local/bin/yt-dlp',
+      '/usr/bin/yt-dlp',
+      path.join(home, '.local', 'bin', 'yt-dlp'),
+      path.join(home, 'bin', 'yt-dlp')
+    ];
+    for (const macPath of macPaths) {
+      if (fs.existsSync(macPath)) {
+        try { fs.chmodSync(macPath, 0o755); } catch (_) {}
+        return macPath;
+      }
     }
   } else if (process.platform === 'linux') {
-    for (const linuxPath of ['/usr/local/bin/yt-dlp', '/usr/bin/yt-dlp']) {
-      if (fs.existsSync(linuxPath)) return linuxPath;
+    const home = process.env.HOME || '';
+    const linuxPaths = [
+      '/usr/local/bin/yt-dlp',
+      '/usr/bin/yt-dlp',
+      path.join(home, '.local', 'bin', 'yt-dlp'),
+      path.join(home, 'bin', 'yt-dlp')
+    ];
+    for (const linuxPath of linuxPaths) {
+      if (fs.existsSync(linuxPath)) {
+        try { fs.chmodSync(linuxPath, 0o755); } catch (_) {}
+        return linuxPath;
+      }
     }
   }
 
   return 'yt-dlp';
 }
+
+function testBinaryExecutable(binPath) {
+  return new Promise((resolve) => {
+    try {
+      const child = spawn(binPath, ['--version'], { windowsHide: true, env: process.env });
+      let done = false;
+      const timer = setTimeout(() => {
+        if (!done) { done = true; try { child.kill('SIGKILL'); } catch (_) {} resolve(false); }
+      }, 3500);
+      child.on('error', () => {
+        if (!done) { done = true; clearTimeout(timer); resolve(false); }
+      });
+      child.on('close', (code) => {
+        if (!done) { done = true; clearTimeout(timer); resolve(code === 0); }
+      });
+    } catch (_) {
+      resolve(false);
+    }
+  });
+}
+
+/**
+ * Ensures a working yt-dlp binary is available on the machine.
+ * If missing, automatically downloads the official standalone executable into userData/bin.
+ */
+async function ensureYtDlpBinary() {
+  const current = getYtDlpPath();
+  if (fs.existsSync(current)) {
+    try { fs.chmodSync(current, 0o755); } catch (_) {}
+    return current;
+  }
+
+  const isWorking = await testBinaryExecutable(current);
+  if (isWorking) return current;
+
+  if (ytDlpProvisionPromise) return ytDlpProvisionPromise;
+
+  ytDlpProvisionPromise = (async () => {
+    const userBinDir = getUserDataBinDir();
+    if (!userBinDir) return current;
+
+    try {
+      fs.mkdirSync(userBinDir, { recursive: true });
+    } catch (_) {}
+
+    let binName = 'yt-dlp';
+    let dlUrl = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp';
+    if (process.platform === 'win32') {
+      binName = 'yt-dlp.exe';
+      dlUrl = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe';
+    } else if (process.platform === 'darwin') {
+      binName = 'yt-dlp_macos';
+      dlUrl = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos';
+    }
+
+    const targetPath = path.join(userBinDir, binName);
+    if (fs.existsSync(targetPath)) {
+      try { fs.chmodSync(targetPath, 0o755); } catch (_) {}
+      return targetPath;
+    }
+
+    console.log(`[OpenTune] yt-dlp binary not found. Auto-provisioning ${binName} from ${dlUrl}...`);
+    try {
+      const resp = await fetch(dlUrl, {
+        headers: { 'User-Agent': 'OpenTune-Desktop/3.0.8' }
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const arrayBuf = await resp.arrayBuffer();
+      const buf = Buffer.from(arrayBuf);
+      if (buf.length < 50000) throw new Error(`Incomplete binary download (${buf.length} bytes)`);
+
+      const tempFile = `${targetPath}.tmp-${Date.now()}`;
+      await fs.promises.writeFile(tempFile, buf);
+      try { fs.chmodSync(tempFile, 0o755); } catch (_) {}
+      await fs.promises.rename(tempFile, targetPath);
+      try { fs.chmodSync(targetPath, 0o755); } catch (_) {}
+      console.log(`[OpenTune] Successfully installed yt-dlp binary at ${targetPath}`);
+      return targetPath;
+    } catch (dlErr) {
+      console.warn('[OpenTune] Could not auto-download yt-dlp binary:', dlErr.message);
+      return current;
+    }
+  })().finally(() => {
+    ytDlpProvisionPromise = null;
+  });
+
+  return ytDlpProvisionPromise;
+}
+
+// Background auto-provision check on startup
+ensureYtDlpBinary().catch(() => {});
 
 /**
  * Resolves raw stream URL using yt-dlp with caching
@@ -66,48 +212,50 @@ async function extractStreamUrlWithFormat(videoId, formatSelector = 'bestaudio',
     return inflightExtractions.get(cacheKey);
   }
 
-  const job = new Promise((resolve, reject) => {
-    const ytDlpPath = getYtDlpPath();
-    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const args = ['-g', '-f', formatSelector, '--no-playlist', '--no-warnings', '--no-check-certificates', '--socket-timeout', '12', videoUrl];
+  const job = (async () => {
+    const ytDlpPath = await ensureYtDlpBinary();
+    return new Promise((resolve, reject) => {
+      const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      const args = ['-g', '-f', formatSelector, '--no-playlist', '--no-warnings', '--no-check-certificates', '--socket-timeout', '12', videoUrl];
 
-    const child = spawn(ytDlpPath, args, { windowsHide: true });
-    let stdout = '';
-    let stderr = '';
-    let settled = false;
+      const child = spawn(ytDlpPath, args, { windowsHide: true, env: process.env });
+      let stdout = '';
+      let stderr = '';
+      let settled = false;
 
-    const timeout = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      try { child.kill('SIGKILL'); } catch (_) {}
-      reject(new Error(`Stream extraction timed out for ${videoId}`));
-    }, 25000);
+      const timeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        try { child.kill('SIGKILL'); } catch (_) {}
+        reject(new Error(`Stream extraction timed out for ${videoId}`));
+      }, 25000);
 
-    child.stdout.on('data', (d) => { stdout += d.toString(); });
-    child.stderr.on('data', (d) => { stderr += d.toString(); });
+      child.stdout.on('data', (d) => { stdout += d.toString(); });
+      child.stderr.on('data', (d) => { stderr += d.toString(); });
 
-    child.on('close', (code) => {
-      clearTimeout(timeout);
-      if (settled) return;
-      settled = true;
-      if (code === 0) {
-        const url = stdout.trim().split('\n')[0].trim();
-        if (url && url.startsWith('http')) {
-          streamCache.set(cacheKey, { url, expireAt: Date.now() + 4 * 3600 * 1000 });
-          resolve(url);
-          return;
+      child.on('close', (code) => {
+        clearTimeout(timeout);
+        if (settled) return;
+        settled = true;
+        if (code === 0) {
+          const url = stdout.trim().split('\n')[0].trim();
+          if (url && url.startsWith('http')) {
+            streamCache.set(cacheKey, { url, expireAt: Date.now() + 4 * 3600 * 1000 });
+            resolve(url);
+            return;
+          }
         }
-      }
-      reject(new Error(`Failed to extract audio stream for ${videoId}: ${stderr || 'Unknown error'}`));
-    });
+        reject(new Error(`Failed to extract audio stream for ${videoId}: ${stderr || 'Unknown error'}`));
+      });
 
-    child.on('error', (err) => {
-      clearTimeout(timeout);
-      if (settled) return;
-      settled = true;
-      reject(new Error(`Error launching yt-dlp (${ytDlpPath}): ${err.message}`));
+      child.on('error', (err) => {
+        clearTimeout(timeout);
+        if (settled) return;
+        settled = true;
+        reject(new Error(`Error launching yt-dlp (${ytDlpPath}): ${err.message}`));
+      });
     });
-  }).finally(() => {
+  })().finally(() => {
     if (inflightExtractions.get(cacheKey) === job) {
       inflightExtractions.delete(cacheKey);
     }
@@ -251,5 +399,6 @@ module.exports = {
   getRawStreamUrl,
   getDownloadStreamUrl,
   clearStreamCache,
-  getYtDlpPath
+  getYtDlpPath,
+  ensureYtDlpBinary
 };
