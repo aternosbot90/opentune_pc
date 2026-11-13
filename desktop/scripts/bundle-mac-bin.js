@@ -27,3 +27,4 @@ async function bundleMacBinary() {
 bundleMacBinary().catch((err) => {
   console.warn('[bundle-mac-bin] Notice:', err.message);
 });
+

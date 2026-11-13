@@ -5737,6 +5737,7 @@ function updateAuthUI(profile) {
     userLoggedInBox.style.display = 'flex';
     userName.textContent = profile.name || 'YouTube User';
     userAvatar.src = profile.avatar || 'assets/icon.png';
+    userLoggedInBox.title = profile.name ? `${profile.name} (YouTube Music)` : 'YouTube Music Account';
 
     if (settingsAccName) settingsAccName.textContent = profile.name || 'Connected YouTube User';
     if (settingsAccDesc) settingsAccDesc.textContent = profile.email ? `Signed in as ${profile.email}. Library and playlists in sync.` : 'Connected to YouTube Music session. Library and playlists in sync.';
