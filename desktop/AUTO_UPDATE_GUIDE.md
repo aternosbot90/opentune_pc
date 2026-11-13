@@ -134,24 +134,57 @@ Drag and drop the generated files from `desktop/dist/` into the GitHub release a
 
 ---
 
-## Optional: 1-Click Automated CLI Publishing
+## Optional: 1-Click Automated CLI Publishing (Using GH_TOKEN)
 
-If you prefer not to manually upload files via the GitHub web interface, you can generate a **GitHub Personal Access Token** and let `electron-builder` upload everything automatically:
+If you prefer not to manually upload files via the GitHub web interface, you can generate a **GitHub Personal Access Token** (`GH_TOKEN`). With this set up, running `npm run publish:win` or `npm run publish:mac` will build, package, create the GitHub release, and upload all files automatically.
 
-1. Create a GitHub Personal Access Token (`repo` scope) at:
-   `https://github.com/settings/tokens`
-2. In your terminal, set the token:
-   - **Windows (PowerShell)**:
-     ```powershell
-     $env:GH_TOKEN="your_personal_access_token_here"
-     npm run publish:win
-     ```
-   - **macOS / Linux**:
-     ```bash
-     export GH_TOKEN="your_personal_access_token_here"
-     npm run publish:mac
-     ```
-3. `electron-builder` will automatically compile the binaries, generate the `.yml` manifests, create the draft release on GitHub, and upload all files.
+### How to Generate Your GitHub Token (`GH_TOKEN`):
+
+1. Go directly to: [https://github.com/settings/tokens/new](https://github.com/settings/tokens/new)
+   *(Or click your GitHub Profile Icon -> **Settings** -> Scroll to bottom of left menu -> **Developer settings** -> **Personal access tokens** -> **Tokens (classic)** -> **Generate new token (classic)**)*.
+2. Fill in the fields:
+   - **Note / Name**: `OpenTune Auto-Updater` (or any description).
+   - **Expiration**: Select `90 days`, `1 year`, or `No expiration`.
+   - **Select Scopes**: Check the **`repo`** box (this gives full control of private/public repositories and releases).
+3. Scroll to the bottom and click the green **Generate token** button.
+4. **Copy your token immediately** (it looks like `ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx`). *GitHub will only show this code once!*
+
+---
+
+### How to Save Your Token (Permanent Setup):
+
+#### On Windows (PowerShell):
+To save it permanently so you never have to re-enter it:
+```powershell
+[Environment]::SetEnvironmentVariable("GH_TOKEN", "ghp_your_token_here", "User")
+```
+*(Or for just the current terminal session: `$env:GH_TOKEN="ghp_your_token_here"`)*
+
+#### On macOS (Terminal):
+To save it permanently in your shell:
+```bash
+echo 'export GH_TOKEN="ghp_your_token_here"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+---
+
+### How to Run Automated Publishing:
+
+Once `GH_TOKEN` is set, navigate to `desktop/` and run:
+
+- **On Windows**:
+  ```bash
+  cd desktop
+  npm run publish:win
+  ```
+- **On macOS**:
+  ```bash
+  cd desktop
+  npm run publish:mac
+  ```
+
+`electron-builder` will compile the code, generate the update manifests (`latest.yml` / `latest-mac.yml`), upload the artifacts to your GitHub release matching the version in `package.json`, and publish it automatically!
 
 ---
 
