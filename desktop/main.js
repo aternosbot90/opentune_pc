@@ -59,6 +59,7 @@ app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
 app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling');
 // Allow audio & Web Audio API AudioContext to autoplay reliably without requiring explicit user gestures
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+app.commandLine.appendSwitch('disable-features', 'PreloadMediaEngagementData,MediaEngagementBypassAutoplayPolicies');
 
 let mainWindow = null;
 let savedNormalBounds = null;
@@ -1208,14 +1209,22 @@ app.on('child-process-gone', (_e, details) => {
 app.whenReady().then(() => {
   session.defaultSession.setUserAgent(CHROME_USER_AGENT);
 
-  // Fix YouTube Embed Error 153 in Electron: spoof Referer & Origin for all YouTube requests
+  // Fix YouTube Embed in Electron: supply clean matching Referer without conflicting Origin on document requests
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: ['*://*.youtube.com/*', '*://*.youtube-nocookie.com/*', '*://*.googlevideo.com/*'] },
     (details, callback) => {
-      details.requestHeaders['Referer'] = 'https://www.youtube.com/';
-      details.requestHeaders['Origin'] = 'https://www.youtube.com';
-      delete details.requestHeaders['X-Requested-With'];
-      callback({ cancel: false, requestHeaders: details.requestHeaders });
+      const headers = { ...details.requestHeaders };
+      delete headers['X-Requested-With'];
+      delete headers['sec-ch-ua'];
+      delete headers['sec-ch-ua-mobile'];
+      delete headers['sec-ch-ua-platform'];
+
+      if (details.url.includes('youtube-nocookie.com')) {
+        headers['Referer'] = 'https://www.youtube-nocookie.com/';
+      } else if (details.url.includes('youtube.com')) {
+        headers['Referer'] = 'https://www.youtube.com/';
+      }
+      callback({ cancel: false, requestHeaders: headers });
     }
   );
 

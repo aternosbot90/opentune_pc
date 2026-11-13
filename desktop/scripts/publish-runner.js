@@ -71,3 +71,4 @@ const child = spawn(npxCmd, ['electron-builder', ...builderArgs], {
 child.on('close', (code) => {
   process.exit(code || 0);
 });
+

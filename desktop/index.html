@@ -2237,8 +2237,13 @@
           <img id="np-cover-img" class="np-cover-img" src="assets/icon.png" alt="Album Cover">
         </div>
         <div id="np-video-container" class="np-video-container" style="display: none;">
-          <iframe id="np-video-frame" class="np-video-frame" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+          <div class="np-video-wrapper">
+            <iframe id="np-video-frame" class="np-video-frame" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+          </div>
           <div id="np-video-fallback-bar" class="np-video-fallback-bar">
+            <button id="np-video-switch-song-btn" class="btn-subtle btn-compact" type="button" title="Switch back to Song audio">
+              🎵 Song Audio
+            </button>
             <button id="np-video-open-yt-btn" class="btn-subtle btn-compact" type="button" title="Open video in external browser">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
               Watch on YouTube ↗
