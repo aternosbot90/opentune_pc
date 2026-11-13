@@ -1,0 +1,102 @@
+{
+  "name": "opentune-desktop",
+  "productName": "OpenTune",
+  "version": "3.0.8",
+  "description": "OpenTune Desktop Music Client",
+  "main": "main.js",
+  "author": "Arturo254",
+  "license": "GPL-3.0",
+  "scripts": {
+    "start": "electron .",
+    "build:portable": "electron-builder --win portable --x64",
+    "build:installer": "electron-builder --win nsis --x64",
+    "build:dir": "electron-builder --win dir --x64",
+    "build": "npm run build:portable && npm run build:installer",
+    "build:mac": "electron-builder --mac dmg --universal",
+    "build:mac-arm64": "electron-builder --mac dmg --arm64",
+    "build:mac-x64": "electron-builder --mac dmg --x64"
+  },
+  "build": {
+    "appId": "com.arturo254.opentune.desktop",
+    "productName": "OpenTune",
+    "copyright": "Copyright © 2026 OpenTune Project",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        },
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OpenTune"
+    },
+    "portable": {
+      "artifactName": "OpenTune-Portable-${version}.exe"
+    },
+    "mac": {
+      "category": "public.app-category.music",
+      "icon": "assets/icon.png",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["universal"]
+        },
+        {
+          "target": "zip",
+          "arch": ["universal"]
+        }
+      ]
+    },
+    "dmg": {
+      "artifactName": "OpenTune-${version}-macOS-Universal.dmg",
+      "title": "OpenTune ${version}",
+      "icon": "assets/icon.png",
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
+    },
+    "extraResources": [
+      {
+        "from": "bin",
+        "to": "bin",
+        "filter": ["**/*"]
+      }
+    ],
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.js",
+      "index.html",
+      "styles.css",
+      "stream.js",
+      "lyrics.js",
+      "ytmusic.js",
+      "assets/**/*",
+      "node_modules/**/*"
+    ]
+  },
+  "dependencies": {
+    "youtubei.js": "^18.3.0"
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0"
+  }
+}

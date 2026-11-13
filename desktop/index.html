@@ -1,0 +1,2352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenTune - Desktop</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Ambient Album Mesh Glow (OpenTune Theme) -->
+    <div class="ambient-glow-container">
+      <div id="ambient-blob-1" class="ambient-glow-blob ambient-blob-1"></div>
+      <div id="ambient-blob-2" class="ambient-glow-blob ambient-blob-2"></div>
+    </div>
+
+    <!-- Desktop Titlebar -->
+    <header class="titlebar">
+      <div class="titlebar-left">
+        <button id="mobile-nav-toggle" class="nav-btn mobile-only-btn" title="Toggle Menu" aria-label="Toggle Navigation">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+        </button>
+
+        <button id="sidebar-collapse-btn" class="nav-btn desktop-sidebar-toggle" title="Toggle Compact Sidebar Rail" aria-label="Toggle Compact Sidebar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h12v-2H3v2zm0-7v2h18V6H3z"/></svg>
+        </button>
+
+        <div class="brand">
+          <div class="brand-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+          </div>
+          <span>OpenTune</span>
+        </div>
+
+        <div class="nav-history">
+          <button id="nav-back" class="nav-btn" title="Back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+          </button>
+          <button id="nav-forward" class="nav-btn" title="Forward">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="search-container">
+        <div class="search-input-wrapper">
+          <button id="search-submit-btn" class="search-inline-btn" title="Search">
+            <svg class="search-icon" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          </button>
+          <input type="text" id="search-input" placeholder="Search songs, artists, albums, or playlists... (Ctrl+K)" autocomplete="off">
+          <button id="search-clear-btn" title="Clear search">&times;</button>
+        </div>
+        <div id="suggestions-dropdown" class="suggestions-dropdown"></div>
+      </div>
+
+      <!-- Titlebar Right / Window controls -->
+      <div class="titlebar-right">
+        <button id="header-eq-btn" class="header-action-btn" title="Audio Equalizer">
+          <svg viewBox="0 0 24 24"><path d="M7 18h2V6H7v12zm4 4h2V2h-2v20zm-8-8h2v-4H3v4zm12 4h2V6h-2v12zm4-8v4h2v-4h-2z"/></svg>
+        </button>
+
+        <button id="header-lyrics-btn" class="header-action-btn" title="Synced Lyrics">
+          <svg viewBox="0 0 24 24"><path d="M19 4H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V8h10v2z"/></svg>
+        </button>
+
+        <button id="header-queue-btn" class="header-action-btn" title="Playback Queue">
+          <svg viewBox="0 0 24 24"><path d="M4 10h12v2H4zm0-4h12v2H4zm0 8h8v2H4zm10 0v6l5-3z"/></svg>
+        </button>
+
+        <button id="header-mini-btn" class="header-action-btn" title="Toggle Mini-Player">
+          <svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z"/></svg>
+        </button>
+
+        <div class="window-controls">
+          <button id="win-min" class="win-btn" title="Minimize">
+            <svg width="12" height="12" viewBox="0 0 12 12"><rect y="5" width="12" height="1.5" fill="currentColor"/></svg>
+          </button>
+          <button id="win-max" class="win-btn" title="Maximize">
+            <svg width="12" height="12" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
+          </button>
+          <button id="win-close" class="win-btn close" title="Close">
+            <svg width="12" height="12" viewBox="0 0 12 12"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
+    <!-- Main Workspace -->
+    <div class="main-wrapper">
+      <!-- Left Sidebar Navigation -->
+      <nav class="sidebar">
+        <div class="sidebar-nav">
+          <div>
+            <div class="nav-section-title">Discover</div>
+            <ul class="nav-list">
+              <li class="nav-item active" data-view="home">
+                <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                <span>Home</span>
+              </li>
+              <li class="nav-item" data-view="explore">
+                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                <span>Explore & Moods</span>
+              </li>
+              <li class="nav-item" data-view="charts">
+                <svg viewBox="0 0 24 24"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
+                <span>Charts & Top</span>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <div class="nav-section-title">Library</div>
+            <ul class="nav-list">
+              <li class="nav-item" data-view="liked">
+                <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                <span>Liked Songs</span>
+              </li>
+              <li class="nav-item" data-view="playlists">
+                <svg viewBox="0 0 24 24"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>
+                <span>Playlists</span>
+              </li>
+              <li class="nav-item" data-view="history">
+                <svg viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                <span>History</span>
+              </li>
+              <li class="nav-item" data-view="stats">
+                <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+                <span>Stats & Insights</span>
+              </li>
+              <li class="nav-item" data-view="settings">
+                <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                <span>Settings</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- User / Login Box & Global Download Status in Sidebar -->
+        <div class="sidebar-footer">
+          <div id="sidebar-download-pill" class="sidebar-download-pill" style="display: none;">
+            <div class="sidebar-download-top">
+              <span class="sidebar-download-title" id="sidebar-download-title">Downloading...</span>
+              <button id="sidebar-download-cancel" class="sidebar-dl-cancel-btn" title="Stop download">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            </div>
+            <div class="sidebar-download-bar">
+              <div class="sidebar-download-bar-fill" id="sidebar-download-bar-fill"></div>
+            </div>
+            <div class="sidebar-download-sub" id="sidebar-download-sub">0 / 0 tracks</div>
+          </div>
+
+          <div id="user-logged-in-box" class="user-card" style="display: none;">
+            <img id="user-avatar" class="user-avatar" src="" alt="User Avatar">
+            <div class="user-info">
+              <div id="user-name" class="user-name">User</div>
+              <div class="user-status">YouTube Music</div>
+            </div>
+            <button id="logout-btn" class="logout-btn-small" title="Sign out">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+            </button>
+          </div>
+
+          <button id="login-btn" class="login-btn-sidebar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+            <span>Sign In with Google</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Center Scrollable Content Area -->
+      <main class="content-area">
+        <!-- View: Home -->
+        <section id="view-home" class="view-section active">
+          <div class="section-header">
+            <h1 class="section-title">Home</h1>
+            <p class="section-subtitle">Quick picks and trending music for you</p>
+          </div>
+
+          <!-- Category Chips matching OpenTune Android -->
+          <div class="category-chips-bar">
+            <button class="chip active" data-chip="all">All</button>
+            <button class="chip" data-chip="relax">Relax</button>
+            <button class="chip" data-chip="workout">Workout</button>
+            <button class="chip" data-chip="energize">Energize</button>
+            <button class="chip" data-chip="commute">Commute</button>
+            <button class="chip" data-chip="focus">Focus</button>
+          </div>
+
+          <!-- YouTube Music User Playlists & Library Shortcuts on Home -->
+          <div id="home-user-playlists-section" class="home-dynamic-section" style="display: none; margin-bottom: 28px;">
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0;">From Your YouTube Music</h2>
+              <button id="home-btn-view-all-playlists" class="btn-subtle btn-compact" type="button">All Playlists &rarr;</button>
+            </div>
+            <div id="home-user-playlists-grid" class="cards-grid" style="margin-top: 14px;"></div>
+          </div>
+
+          <div class="section-header">
+            <h2 id="home-section-title" style="font-size: 1.25rem; font-weight: 700; margin-bottom: 12px;">Quick Picks</h2>
+          </div>
+          <div id="home-quick-picks" class="cards-grid">
+            <div class="spinner"></div>
+          </div>
+
+          <div class="section-header" style="margin-top: 32px;">
+            <h2 id="home-trending-title" style="font-size: 1.25rem; font-weight: 700; margin-bottom: 12px;">Trending Now</h2>
+          </div>
+          <table class="track-table">
+            <thead>
+              <tr>
+                <th class="track-col-num">#</th>
+                <th>Title</th>
+                <th>Album</th>
+                <th class="track-col-duration">Time</th>
+                <th class="track-col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="home-trending-list"></tbody>
+          </table>
+
+          <!-- Dynamic Personalized Sections from YouTube Music -->
+          <div id="home-extra-sections" class="home-extra-sections" style="margin-top: 24px;"></div>
+        </section>
+
+        <!-- View: Explore & Moods -->
+        <section id="view-explore" class="view-section">
+          <div class="section-header">
+            <h1 class="section-title">Explore & Moods</h1>
+            <p class="section-subtitle">Browse genres, vibes, and new releases</p>
+          </div>
+          <div id="explore-categories" class="explore-grid"></div>
+
+          <div class="section-header" style="margin-top: 36px;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 12px;">New Albums & Singles</h2>
+          </div>
+          <div id="explore-new-releases" class="cards-grid">
+            <div class="spinner"></div>
+          </div>
+        </section>
+
+        <!-- View: Charts & Trending -->
+        <section id="view-charts" class="view-section">
+          <div class="section-header">
+            <h1 class="section-title">Charts & Top Hits</h1>
+            <p class="section-subtitle">The most popular tracks and trending music worldwide</p>
+          </div>
+          <table class="track-table">
+            <thead>
+              <tr>
+                <th class="track-col-num">#</th>
+                <th>Title</th>
+                <th>Album</th>
+                <th class="track-col-duration">Time</th>
+                <th class="track-col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="charts-songs-list"></tbody>
+          </table>
+        </section>
+
+        <!-- View: Search Results & Discovery -->
+        <section id="view-search" class="view-section">
+          <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h1 id="search-title" class="section-title">Search Music</h1>
+              <p id="search-count" class="section-subtitle">Search songs, albums, artists, and playlists</p>
+            </div>
+            <button id="btn-search-show-discover" class="btn-subtle" style="display: none;">
+              <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg> Recent Searches
+            </button>
+          </div>
+
+          <!-- Search Filter Chips -->
+          <div class="chips-row" id="search-filter-chips" style="margin-bottom: 24px;">
+            <button class="chip active" data-search-filter="all">All</button>
+            <button class="chip" data-search-filter="song">Songs</button>
+            <button class="chip" data-search-filter="album">Albums</button>
+            <button class="chip" data-search-filter="artist">Artists</button>
+            <button class="chip" data-search-filter="playlist">Playlists</button>
+          </div>
+
+          <!-- Search Discovery Panel (Recent Searches + Recently Played) -->
+          <div id="search-discovery-panel">
+            <div id="search-history-section" class="search-discovery-block" style="display: none;">
+              <div class="search-discovery-header">
+                <h3 style="font-size: 1.05rem; font-weight: 700;">Recent Searches</h3>
+                <button id="btn-clear-search-history" class="btn-subtle btn-compact" style="color: #ff6b6b;">
+                  <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg> Clear History
+                </button>
+              </div>
+              <div id="search-history-chips" class="search-history-chips"></div>
+            </div>
+
+            <div id="search-recent-tracks-section" class="search-discovery-block" style="display: none;">
+              <div class="search-discovery-header">
+                <h3 style="font-size: 1.05rem; font-weight: 700;">Recently Played</h3>
+              </div>
+              <div id="search-recent-tracks-grid" class="cards-grid"></div>
+            </div>
+
+            <div id="search-discovery-empty" class="empty-state-box" style="display: none;">
+              <svg width="42" height="42" viewBox="0 0 24 24" fill="currentColor" style="opacity: 0.45;"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+              <h4>Find any song, artist, album, or playlist</h4>
+              <p>Type in the search bar above to discover music and get instant live suggestions.</p>
+            </div>
+          </div>
+
+          <!-- Filter Container: All -->
+          <div id="search-container-all" style="display: none;">
+            <!-- Top Result / Songs Section -->
+            <div id="search-all-songs-section" style="margin-bottom: 32px;">
+              <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 12px;">Songs</h3>
+              <table class="track-table">
+                <thead>
+                  <tr>
+                    <th class="track-col-num">#</th>
+                    <th>Title</th>
+                    <th>Album</th>
+                    <th class="track-col-duration">Time</th>
+                    <th class="track-col-actions"></th>
+                  </tr>
+                </thead>
+                <tbody id="search-all-songs-list"></tbody>
+              </table>
+            </div>
+
+            <!-- Albums Section -->
+            <div id="search-all-albums-section" style="margin-bottom: 32px; display: none;">
+              <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 12px;">Albums</h3>
+              <div id="search-all-albums-grid" class="cards-grid"></div>
+            </div>
+
+            <!-- Artists Section -->
+            <div id="search-all-artists-section" style="margin-bottom: 32px; display: none;">
+              <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 12px;">Artists</h3>
+              <div id="search-all-artists-grid" class="cards-grid"></div>
+            </div>
+
+            <!-- Playlists Section -->
+            <div id="search-all-playlists-section" style="margin-bottom: 32px; display: none;">
+              <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 12px;">Playlists</h3>
+              <div id="search-all-playlists-grid" class="cards-grid"></div>
+            </div>
+          </div>
+
+          <!-- Filter Container: Songs Table -->
+          <div id="search-container-songs" style="display: none;">
+            <table class="track-table">
+              <thead>
+                <tr>
+                  <th class="track-col-num">#</th>
+                  <th>Title</th>
+                  <th>Album</th>
+                  <th class="track-col-duration">Time</th>
+                  <th class="track-col-actions"></th>
+                </tr>
+              </thead>
+              <tbody id="search-results-list"></tbody>
+            </table>
+          </div>
+
+          <!-- Filter Container: Albums Grid -->
+          <div id="search-container-albums" class="cards-grid" style="display: none;"></div>
+
+          <!-- Filter Container: Artists Grid -->
+          <div id="search-container-artists" class="cards-grid" style="display: none;"></div>
+
+          <!-- Filter Container: Playlists Grid -->
+          <div id="search-container-playlists" class="cards-grid" style="display: none;"></div>
+        </section>
+
+        <!-- View: Liked Songs -->
+        <section id="view-liked" class="view-section">
+          <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-end;">
+            <div>
+              <h1 class="section-title">Liked Songs</h1>
+              <p id="liked-count" class="section-subtitle">0 tracks</p>
+            </div>
+              <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+              <button id="btn-play-all-liked" class="btn-primary-action m3-pill-btn"><svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Play All</button>
+              <button id="btn-shuffle-liked" class="btn-tonal-action m3-pill-btn"><svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg> Shuffle</button>
+              <button id="btn-download-liked" class="btn-tonal-action m3-pill-btn"><svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg> Download</button>
+              <span id="liked-download-status" style="font-size: 0.84rem; color: var(--accent); display: none;"></span>
+            </div>
+          </div>
+          <table class="track-table">
+            <thead>
+              <tr>
+                <th class="track-col-num">#</th>
+                <th>Title</th>
+                <th>Album</th>
+                <th class="track-col-duration">Time</th>
+                <th class="track-col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="liked-songs-list"></tbody>
+          </table>
+        </section>
+
+        <!-- View: Playlists Hub -->
+        <section id="view-playlists" class="view-section">
+          <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 14px;">
+            <div>
+              <h1 class="section-title">Playlists</h1>
+              <p class="section-subtitle">Your local collections, YouTube Music playlists, and real-time cloud sync</p>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+              <button id="btn-create-playlist-open" class="btn-primary-action m3-pill-btn">
+                <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg> Create Playlist
+              </button>
+              <button id="btn-import-yt-playlist-open" class="btn-subtle">
+                <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg> Import by Link / ID
+              </button>
+              <button id="btn-sync-yt-playlists" class="btn-subtle" title="Refresh and Synchronize YouTube Music Playlists">
+                <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg> Sync Now
+              </button>
+            </div>
+          </div>
+
+          <!-- Library Quick Bento Cards (Matching OpenTune Mobile Library Bento) -->
+          <div id="library-bento-grid" class="library-bento-grid">
+            <button type="button" id="bento-card-liked" class="library-bento-card">
+              <div class="bento-icon-wrap bento-coral">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              </div>
+              <div class="bento-card-text">
+                <div class="bento-card-title">Liked Songs</div>
+                <div class="bento-card-sub" id="bento-liked-sub">0 songs</div>
+              </div>
+            </button>
+            <button type="button" id="bento-card-downloaded" class="library-bento-card">
+              <div class="bento-icon-wrap bento-green">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+              </div>
+              <div class="bento-card-text">
+                <div class="bento-card-title">Downloaded</div>
+                <div class="bento-card-sub" id="bento-downloaded-sub">0 offline tracks</div>
+              </div>
+            </button>
+            <button type="button" id="bento-card-top50" class="library-bento-card">
+              <div class="bento-icon-wrap bento-purple">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
+              </div>
+              <div class="bento-card-text">
+                <div class="bento-card-title">My Top 50</div>
+                <div class="bento-card-sub" id="bento-top50-sub">Most played tracks</div>
+              </div>
+            </button>
+            <button type="button" id="bento-card-cached" class="library-bento-card">
+              <div class="bento-icon-wrap bento-amber">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+              </div>
+              <div class="bento-card-text">
+                <div class="bento-card-title">History &amp; Cached</div>
+                <div class="bento-card-sub" id="bento-history-sub">Recent listens</div>
+              </div>
+            </button>
+          </div>
+
+          <!-- Logged-in User YouTube Music Cloud Playlists (Direct One-Click Import & Two-Way Sync) -->
+          <div id="yt-playlists-section" style="display: none; margin-bottom: 32px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <h2 style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                  <svg style="width: 18px; height: 18px; color: var(--accent);" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+                  Your YouTube Music Playlists
+                </h2>
+                <p id="yt-playlists-subtitle" class="section-subtitle" style="font-size: 0.84rem; margin-top: 2px;">Import directly into OpenTune with full 2-way real-time sync</p>
+              </div>
+              <button id="btn-import-all-yt-playlists" class="btn-subtle" style="font-size: 0.82rem;">
+                <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg> Import All YT Playlists
+              </button>
+            </div>
+            <div id="yt-playlists-grid" class="cards-grid"></div>
+          </div>
+
+          <!-- Local & Synced OpenTune Playlists -->
+          <div id="local-playlists-section">
+            <h2 id="local-playlists-heading" style="font-size: 1.15rem; font-weight: 700; margin-bottom: 14px; display: none;">OpenTune Library</h2>
+            <div id="playlists-grid" class="cards-grid">
+              <div class="spinner"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- View: Playlist Detail -->
+        <section id="view-playlist-detail" class="view-section">
+          <div class="playlist-header">
+            <button id="btn-back-to-playlists" class="btn-subtle" style="margin-bottom: 16px;">
+              <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg> Back to Playlists
+            </button>
+            <div style="display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap;">
+              <img id="detail-playlist-thumb" class="detail-playlist-thumb" src="assets/icon.png" alt="Cover">
+              <div style="flex: 1; min-width: 200px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                  <span class="detail-playlist-badge">PLAYLIST</span>
+                  <span id="detail-playlist-sync-badge" class="sync-status-pill" style="display: none;"></span>
+                </div>
+                <h1 id="detail-playlist-title" class="section-title" style="margin: 8px 0;">Playlist Title</h1>
+                <p id="detail-playlist-count" class="section-subtitle">0 tracks</p>
+                <div class="m3-detail-actions">
+                  <div class="m3-action-row">
+                    <button id="detail-playlist-delete-btn" class="m3-circle-btn m3-danger-btn" style="display: none;" title="Delete Playlist">
+                      <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    </button>
+                    <button id="detail-playlist-play-btn" class="btn-primary-action m3-pill-btn">
+                      <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Play All
+                    </button>
+                    <button id="detail-playlist-shuffle-btn" class="btn-tonal-action m3-pill-btn" title="Shuffle Play Playlist">
+                      <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg> Shuffle
+                    </button>
+                    <button id="detail-playlist-download-btn" class="btn-tonal-action m3-pill-btn" title="Download Playlist for Offline">
+                      <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg> Download
+                    </button>
+                    <button id="detail-playlist-queue-btn" class="m3-circle-btn" title="Add Playlist to Queue">
+                      <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>
+                    </button>
+                    <button id="detail-playlist-import-btn" class="btn-subtle m3-pill-btn" style="display: none;" title="Import this playlist to OpenTune Library with real-time sync">
+                      <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg> Import
+                    </button>
+                    <button id="detail-playlist-push-yt-btn" class="btn-subtle m3-pill-btn" style="display: none;" title="Push & Link this OpenTune playlist with your YouTube Music account for real-time two-way sync">
+                      <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg> Sync YT
+                    </button>
+                    <button id="detail-playlist-sync-btn" class="btn-subtle m3-pill-btn" style="display: none;" title="Synchronize changes now or toggle auto-sync">
+                      <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg> <span id="detail-playlist-sync-label">Real-Time Sync: ON</span>
+                    </button>
+                  </div>
+                  <button id="detail-playlist-radio-btn" class="m3-wide-wave-btn" title="Start Endless Radio Mix from Playlist">
+                    <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18h2V6H7v12zm4 4h2V2h-2v20zm-8-8h2v-4H3v4zm12 4h2V6h-2v12zm4-8v4h2v-4h-2z"/></svg> Start Radio Mix
+                  </button>
+                  <span id="detail-playlist-download-status" style="font-size: 0.84rem; color: var(--accent); display: none;"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <table class="track-table">
+            <thead>
+              <tr>
+                <th class="track-col-num">#</th>
+                <th>Title</th>
+                <th>Album</th>
+                <th class="track-col-duration">Time</th>
+                <th class="track-col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="detail-playlist-tracks-list"></tbody>
+          </table>
+        </section>
+
+        <!-- View: Album Detail (Matching Android AlbumScreen.kt) -->
+        <section id="view-album-detail" class="view-section">
+          <div class="playlist-header">
+            <button id="btn-back-from-album" class="btn-subtle" style="margin-bottom: 16px;">
+              <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg> Back
+            </button>
+            <div style="display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap;">
+              <img id="album-detail-thumb" class="detail-playlist-thumb" src="assets/icon.png" alt="Album Cover">
+              <div style="flex: 1; min-width: 220px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                  <span id="album-detail-badge" class="detail-playlist-badge">ALBUM</span>
+                  <div id="album-detail-meta-pills" class="meta-pills-row"></div>
+                </div>
+                <h1 id="album-detail-title" class="section-title" style="margin: 8px 0;">Album Title</h1>
+                <p id="album-detail-artist" class="section-subtitle clickable-entity-link" style="margin-bottom: 4px;">Artist Name</p>
+                <p id="album-detail-info" class="section-subtitle" style="font-size: 0.85rem;">0 songs</p>
+                <p id="album-detail-desc" style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 8px; line-height: 1.4; display: none;"></p>
+                <div class="m3-detail-actions">
+                  <div class="m3-action-row">
+                    <button id="album-detail-play-btn" class="btn-primary-action m3-pill-btn">
+                      <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Play Album
+                    </button>
+                    <button id="album-detail-shuffle-btn" class="btn-tonal-action m3-pill-btn">
+                      <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg> Shuffle
+                    </button>
+                    <button id="album-detail-download-btn" class="btn-tonal-action m3-pill-btn">
+                      <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg> Download
+                    </button>
+                    <button id="album-detail-queue-btn" class="m3-circle-btn" title="Add Album to Queue">
+                      <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>
+                    </button>
+                  </div>
+                  <button id="album-detail-radio-btn" class="m3-wide-wave-btn" title="Start Radio from Album">
+                    <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18h2V6H7v12zm4 4h2V2h-2v20zm-8-8h2v-4H3v4zm12 4h2V6h-2v12zm4-8v4h2v-4h-2z"/></svg> Start Radio Mix
+                  </button>
+                  <span id="album-detail-download-status" style="font-size: 0.84rem; color: var(--accent); display: none;"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <table class="track-table">
+            <thead>
+              <tr>
+                <th class="track-col-num">#</th>
+                <th>Title</th>
+                <th>Album</th>
+                <th class="track-col-duration">Time</th>
+                <th class="track-col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="album-detail-tracks-list"></tbody>
+          </table>
+
+          <!-- Similar Albums / Other Versions -->
+          <div id="album-detail-similar-section" style="margin-top: 36px; display: none;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 14px;">Similar Albums & Releases</h3>
+            <div id="album-detail-similar-grid" class="cards-grid"></div>
+          </div>
+        </section>
+
+        <!-- View: Artist Detail (Matching Android ArtistScreen.kt) -->
+        <section id="view-artist-detail" class="view-section">
+          <div class="playlist-header">
+            <button id="btn-back-from-artist" class="btn-subtle" style="margin-bottom: 16px;">
+              <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg> Back
+            </button>
+            <div style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap;">
+              <img id="artist-detail-avatar" class="detail-playlist-thumb artist-hero-avatar" src="assets/icon.png" alt="Artist Avatar">
+              <div style="flex: 1; min-width: 220px;">
+                <span class="detail-playlist-badge">ARTIST</span>
+                <h1 id="artist-detail-name" class="section-title" style="margin: 8px 0;">Artist Name</h1>
+                <p id="artist-detail-subs" class="section-subtitle">Artist on YouTube Music</p>
+                <div id="artist-detail-bio-wrap" style="display: none; margin-top: 8px;">
+                  <p id="artist-detail-bio" class="artist-bio-text"></p>
+                  <button id="artist-detail-bio-toggle" class="btn-text-link" type="button" style="display: none;">Read more</button>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; align-items: center;">
+                  <button id="artist-detail-play-btn" class="btn-primary-action m3-pill-btn">
+                    <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Play All
+                  </button>
+                  <button id="artist-detail-shuffle-btn" class="btn-tonal-action m3-pill-btn">
+                    <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg> Shuffle
+                  </button>
+                  <button id="artist-detail-download-btn" class="btn-tonal-action m3-pill-btn">
+                    <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg> Download All
+                  </button>
+                  <span id="artist-detail-download-status" style="font-size: 0.84rem; color: var(--accent); display: none;"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Artist All / Popular Songs -->
+          <div style="margin-top: 24px; margin-bottom: 32px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <h3 style="font-size: 1.15rem; font-weight: 700; margin: 0;">Songs</h3>
+                <span id="artist-detail-songs-count-badge" class="meta-pill" style="font-size: 0.76rem;"></span>
+              </div>
+              <div id="artist-songs-filter-group" style="display: flex; gap: 8px;">
+                <button id="btn-artist-songs-all" class="chip active" type="button">All Songs</button>
+                <button id="btn-artist-songs-top" class="chip" type="button">Top 10</button>
+              </div>
+            </div>
+            <table class="track-table">
+              <thead>
+                <tr>
+                  <th class="track-col-num">#</th>
+                  <th>Title</th>
+                  <th>Album</th>
+                  <th class="track-col-duration">Time</th>
+                  <th class="track-col-actions"></th>
+                </tr>
+              </thead>
+              <tbody id="artist-detail-songs-list"></tbody>
+            </table>
+          </div>
+
+          <!-- Artist Albums -->
+          <div id="artist-detail-albums-section" style="margin-bottom: 32px; display: none;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 14px;">Albums</h3>
+            <div id="artist-detail-albums-grid" class="cards-grid"></div>
+          </div>
+
+          <!-- Artist Singles & EPs -->
+          <div id="artist-detail-singles-section" style="margin-bottom: 32px; display: none;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 14px;">Singles & EPs</h3>
+            <div id="artist-detail-singles-grid" class="cards-grid"></div>
+          </div>
+
+          <!-- Related Artists -->
+          <div id="artist-detail-related-section" style="margin-bottom: 32px; display: none;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 14px;">Fans Might Also Like</h3>
+            <div id="artist-detail-related-grid" class="cards-grid"></div>
+          </div>
+
+          <!-- Featured Playlists -->
+          <div id="artist-detail-featured-section" style="margin-bottom: 32px; display: none;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 14px;">Featured On</h3>
+            <div id="artist-detail-featured-grid" class="cards-grid"></div>
+          </div>
+        </section>
+
+        <!-- View: History (Matching Android HistoryScreen.kt) -->
+        <section id="view-history" class="view-section">
+          <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-end;">
+            <div>
+              <h1 class="section-title">Listening History</h1>
+              <p id="history-subtitle" class="section-subtitle">Songs and tracks you've recently played</p>
+            </div>
+            <button id="clear-history-btn" class="btn-subtle" style="color: #ff5252;">
+              Clear History
+            </button>
+          </div>
+          <table class="track-table">
+            <thead>
+              <tr>
+                <th class="track-col-num">#</th>
+                <th>Title</th>
+                <th>Played</th>
+                <th class="track-col-duration">Time</th>
+                <th class="track-col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="history-songs-list"></tbody>
+          </table>
+        </section>
+
+        <!-- View: Stats (Matching Android StatsScreen.kt) -->
+        <section id="view-stats" class="view-section">
+          <div class="section-header">
+            <h1 class="section-title">Listening Insights & Stats</h1>
+            <p class="section-subtitle">Your personal playback statistics and top tracks</p>
+          </div>
+
+          <div class="stats-cards-row">
+            <div class="stat-card">
+              <div class="stat-number" id="stat-total-plays">0</div>
+              <div class="stat-label">Total Songs Played</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number" id="stat-total-time">0m</div>
+              <div class="stat-label">Total Listening Time</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number" id="stat-top-artist">—</div>
+              <div class="stat-label">Top Artist</div>
+            </div>
+          </div>
+
+          <div class="section-header" style="margin-top: 32px;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 12px;">Most Played Tracks</h2>
+          </div>
+          <table class="track-table">
+            <thead>
+              <tr>
+                <th class="track-col-num">#</th>
+                <th>Title</th>
+                <th>Plays</th>
+                <th class="track-col-duration">Time</th>
+                <th class="track-col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="stats-songs-list"></tbody>
+          </table>
+        </section>
+
+        <!-- View: Settings Hub -->
+        <section id="view-settings" class="view-section">
+          <div class="section-header" style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:12px;">
+            <div>
+              <h1 class="section-title">Settings</h1>
+              <p class="section-subtitle">Material 3 Expressive customization, audio engine, downloads &amp; Always On Display</p>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button id="btn-launch-aod" class="btn-tonal-action m3-pill-btn" type="button" title="Open Always On Display Mode (Shortcut: A)">
+                <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+                Always On Display
+              </button>
+              <button id="btn-reset-all-settings" class="btn-subtle" type="button" title="Restore defaults">Reset Defaults</button>
+            </div>
+          </div>
+
+          <!-- Settings Bento Category Cards (Matching OpenTune Mobile Settings Hub) -->
+          <div class="settings-bento-grid">
+            <button type="button" class="settings-bento-card active" data-settings-cat="all">
+              <div class="bento-icon-wrap bento-coral"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></div>
+              <div class="bento-card-text">
+                <div class="bento-card-title">All Settings</div>
+                <div class="bento-card-sub" id="bento-sub-all">Full preferences view</div>
+              </div>
+            </button>
+            <button type="button" class="settings-bento-card" data-settings-cat="appearance">
+              <div class="bento-icon-wrap bento-pink"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8z"/></svg></div>
+              <div class="bento-card-text">
+                <div class="bento-card-title">Appearance</div>
+                <div class="bento-card-sub" id="bento-sub-appearance">Dark • Dynamic colors</div>
+              </div>
+            </button>
+            <button type="button" class="settings-bento-card" data-settings-cat="player">
+              <div class="bento-icon-wrap bento-purple"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></div>
+              <div class="bento-card-text">
+                <div class="bento-card-title">Player &amp; Audio</div>
+                <div class="bento-card-sub" id="bento-sub-player">Wavy • 160 kbps</div>
+              </div>
+            </button>
+            <button type="button" class="settings-bento-card" data-settings-cat="aod">
+              <div class="bento-icon-wrap bento-teal"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg></div>
+              <div class="bento-card-text">
+                <div class="bento-card-title">Always On Display</div>
+                <div class="bento-card-sub" id="bento-sub-aod">Ambient clock &amp; layout</div>
+              </div>
+            </button>
+          </div>
+
+          <div class="settings-search-row">
+            <div class="settings-search-box">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+              <input type="text" id="settings-search-input" placeholder="Search any setting (e.g. light theme, lyrics, output device, pip, queue)..." autocomplete="off">
+              <button type="button" id="settings-search-clear" title="Clear settings filter" style="display:none;">&times;</button>
+            </div>
+          </div>
+
+          <div class="settings-cat-chips" id="settings-cat-chips">
+            <button type="button" class="chip active" data-settings-cat="all">All</button>
+            <button type="button" class="chip" data-settings-cat="account">Account</button>
+            <button type="button" class="chip" data-settings-cat="appearance">Appearance</button>
+            <button type="button" class="chip" data-settings-cat="player">Player &amp; Lyrics</button>
+            <button type="button" class="chip" data-settings-cat="audio">Audio Engine</button>
+            <button type="button" class="chip" data-settings-cat="aod">Always On Display</button>
+            <button type="button" class="chip" data-settings-cat="storage">Storage &amp; Data</button>
+          </div>
+
+          <div class="settings-container">
+            <!-- Group 0: YouTube Music Account & Sync -->
+            <div class="settings-group" data-cat="account">
+              <div class="settings-group-header">
+                <span class="settings-icon-badge bento-coral"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></span>
+                <div class="settings-group-title">Account &amp; YouTube Music Sync</div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label" id="settings-account-name">Guest Mode</div>
+                  <div class="setting-desc" id="settings-account-desc">Sign in with your Google Account or sync via cookie to access your YouTube Music library, liked songs, and private playlists.</div>
+                </div>
+                <div class="setting-control-col" style="gap: 8px; flex-wrap: wrap;">
+                  <button id="btn-settings-login" class="btn-primary-action" style="padding: 7px 16px;">Sign In with Google</button>
+                  <button id="btn-settings-sync-library" class="btn-subtle" style="padding: 7px 14px; display: none;">Sync Playlists</button>
+                  <button id="btn-settings-logout" class="btn-subtle" style="padding: 7px 14px; color: #ff5252; display: none;">Log Out</button>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Direct Cookie Authentication</div>
+                  <div class="setting-desc">Paste your YouTube Music session cookie (or export from OpenTune Android) to connect instantly.</div>
+                </div>
+                <div class="setting-control-col" style="flex-direction: column; align-items: flex-end; width: 100%; max-width: 420px; gap: 8px;">
+                  <textarea id="settings-cookie-input" rows="2" placeholder="SAPISID=...; LOGIN_INFO=..." style="width: 100%; background: var(--bg-surface); border: var(--glass-border); border-radius: var(--radius-sm); color: var(--text-primary); font-family: monospace; font-size: 0.78rem; padding: 8px; outline: none; resize: vertical;"></textarea>
+                  <button id="btn-settings-save-cookie" class="btn-subtle" style="padding: 6px 14px; font-size: 0.82rem;">Save &amp; Connect Cookie</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Group 1: Appearance, Colors & Layout -->
+            <div class="settings-group" data-cat="appearance">
+              <div class="settings-group-header">
+                <span class="settings-icon-badge bento-pink"><svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.28 19.67 10.59 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg></span>
+                <div class="settings-group-title">Appearance &amp; Theme Palette</div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">UI Design &amp; Aesthetic Style</div>
+                  <div class="setting-desc">Choose your visual aesthetic: iPhone iOS Glass, Frosted Glassmorphism, Liquid Refraction, Tactile Skeuomorphism, Cyberpunk Neon, or Material 3.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-ui-theme-style" class="setting-select">
+                    <option value="default">Material 3 Expressive (Default)</option>
+                    <option value="ios-glass">Apple iOS Style UI Glass</option>
+                    <option value="glassmorphism">Glassmorphism (Frosted Glass)</option>
+                    <option value="liquid-glass">Liquid Glass Refraction</option>
+                    <option value="skeuomorphism">Tactile 3D Skeuomorphism</option>
+                    <option value="cyber-neon">Cyberpunk Electric Neon</option>
+                    <option value="pure-black">Pitch-Black AMOLED</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Theme Mode</div>
+                  <div class="setting-desc">Switch instantly between Material 3 Dark, Pitch-Black AMOLED (#000), and Material Light.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-dark-mode" class="setting-select">
+                    <option value="dark">Material 3 Dark</option>
+                    <option value="pure-black">Pure Black AMOLED (#000000)</option>
+                    <option value="light">Material 3 Light</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Color Palette</div>
+                  <div class="setting-desc">Applies your chosen seed color across accents, controls, active states, and ambient lighting.</div>
+                </div>
+                <div class="setting-control-col">
+                  <div class="palette-swatches">
+                    <div class="color-swatch active" data-color="#ED5564" style="background: #ED5564;" title="OpenTune Coral (Default)"></div>
+                    <div class="color-swatch" data-color="#1DB954" style="background: #1DB954;" title="Spotify Green"></div>
+                    <div class="color-swatch" data-color="#00E5FF" style="background: #00E5FF;" title="Neon Cyan"></div>
+                    <div class="color-swatch" data-color="#8E44AD" style="background: #8E44AD;" title="Royal Purple"></div>
+                    <div class="color-swatch" data-color="#FF9F1C" style="background: #FF9F1C;" title="Sunset Amber"></div>
+                    <div class="color-swatch" data-color="#E74C3C" style="background: #E74C3C;" title="Crimson Red"></div>
+                    <div class="color-swatch" data-color="#2ECC71" style="background: #2ECC71;" title="Emerald Green"></div>
+                    <div class="color-swatch" data-color="#FF6B8B" style="background: #FF6B8B;" title="Rose Gold"></div>
+                    <input type="color" id="setting-custom-color" value="#ED5564" style="width: 32px; height: 32px; border: none; border-radius: 50%; cursor: pointer; background: transparent;" title="Pick Custom Color">
+                  </div>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">One-Click Theme Presets</div>
+                  <div class="setting-desc">Applies curated visual aesthetics, surface styles, and accent combinations.</div>
+                </div>
+                <div class="setting-control-col">
+                  <div class="theme-preset-pills" id="theme-preset-pills">
+                    <button type="button" class="chip theme-preset-btn" data-preset-mode="dark" data-preset-style="default" data-preset-color="#ED5564">Coral Dark</button>
+                    <button type="button" class="chip theme-preset-btn" data-preset-mode="dark" data-preset-style="ios-glass" data-preset-color="#00E5FF">iOS Glass</button>
+                    <button type="button" class="chip theme-preset-btn" data-preset-mode="dark" data-preset-style="glassmorphism" data-preset-color="#8E44AD">Glassmorphism</button>
+                    <button type="button" class="chip theme-preset-btn" data-preset-mode="dark" data-preset-style="skeuomorphism" data-preset-color="#FF9F1C">Skeuomorphic</button>
+                    <button type="button" class="chip theme-preset-btn" data-preset-mode="dark" data-preset-style="cyber-neon" data-preset-color="#00E5FF">Cyber Neon</button>
+                    <button type="button" class="chip theme-preset-btn" data-preset-mode="pure-black" data-preset-style="pure-black" data-preset-color="#1DB954">AMOLED Emerald</button>
+                    <button type="button" class="chip theme-preset-btn" data-preset-mode="light" data-preset-style="ios-glass" data-preset-color="#D93848">Daylight iOS</button>
+                    <button type="button" class="chip theme-preset-btn" data-preset-mode="light" data-preset-style="default" data-preset-color="#2563EB">Nordic Light</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Enable Dynamic Theme</div>
+                  <div class="setting-desc">Extracts dominant palette colors from the playing album artwork automatically.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-dynamic-theme" checked><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Random Theme on Startup</div>
+                  <div class="setting-desc">Picks a fresh color palette swatch each time OpenTune launches.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-random-theme"><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Liquid Frosted Glass</div>
+                  <div class="setting-desc">Translucent frosted acrylic surfaces with glossy edge highlights.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-liquid-glass" checked><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Disable Blur Effects</div>
+                  <div class="setting-desc">Removes backdrop blur across sidebars, sheets, and players for crisp solid surfaces.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-disable-blur"><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Use System Font</div>
+                  <div class="setting-desc">Switches typography cleanly between OpenTune Poppins and your OS system font.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-font-family" class="setting-select">
+                    <option value="poppins">Poppins (OpenTune Default)</option>
+                    <option value="system">System Default</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Show Home Category Chips</div>
+                  <div class="setting-desc">Show or hide mood filter chips (`Relax`, `Workout`, `Focus`, etc.) at the top of Home.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-show-home-chips" checked><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Grid Cell Size</div>
+                  <div class="setting-desc">Changes album/playlist card density across Home, Explore, Search, and Playlists.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-grid-size" class="setting-select">
+                    <option value="big">Big Cards</option>
+                    <option value="medium" selected>Medium (Default)</option>
+                    <option value="compact">Compact Dense Grid</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Show Library Quick Bento Cards</div>
+                  <div class="setting-desc">Displays Liked, Downloaded, Top 50, and History quick cards at the top of Playlists.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-show-library-bento" checked><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Smooth Spring UI Animations</div>
+                  <div class="setting-desc">Fluid entrance transitions and interactive hover motion.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-smooth-animations" checked><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Compact Sidebar Rail</div>
+                  <div class="setting-desc">Collapses sidebar navigation into a sleek icon rail for more browsing width.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-compact-sidebar"><span class="switch-slider"></span></label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Group 2: Player Design & Synced Lyrics -->
+            <div class="settings-group" data-cat="player">
+              <div class="settings-group-header">
+                <span class="settings-icon-badge bento-purple"><svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg></span>
+                <div class="settings-group-title">Player Design &amp; Lyrics</div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Click Bottom Player to Open Sheet</div>
+                  <div class="setting-desc">Clicking the playing song title/cover slides up the Now Playing sheet from below.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-bar-expand" checked><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Player Design &amp; Aesthetic</div>
+                  <div class="setting-desc">Switches fullscreen Now Playing layout between Cinematic Immersion, Classic M3 Card, and Minimal.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-player-design" class="setting-select">
+                    <option value="cinematic">Cinematic Immersion</option>
+                    <option value="classic">Classic M3 Card</option>
+                    <option value="minimal">Minimal Focus</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Player Background &amp; Atmosphere</div>
+                  <div class="setting-desc">Controls fullscreen Now Playing backdrop texture.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-player-bg" class="setting-select">
+                    <option value="blur">Blurred Artwork</option>
+                    <option value="adaptive">Adaptive Color Mesh</option>
+                    <option value="gradient">Diagonal Accent Gradient</option>
+                    <option value="dark">Deep Solid Dark</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Player Button Colors</div>
+                  <div class="setting-desc">Customize Now Playing play/pause &amp; squircle control colors.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-player-buttons" class="setting-select">
+                    <option value="tonal">M3 Tonal Accent</option>
+                    <option value="accent">Vibrant Solid Accent</option>
+                    <option value="monochrome">Monochrome Crisp White</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Artwork Shape</div>
+                  <div class="setting-desc">Changes cover art frame geometry across player and cards.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-art-shape" class="setting-select">
+                    <option value="rounded">Rounded Square</option>
+                    <option value="squircle">M3 Expressive Squircle</option>
+                    <option value="circle">Vinyl Circle</option>
+                    <option value="sharp">Sharp Frame</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Thumbnail Corner Radius: <span id="setting-art-radius-val" style="color:var(--accent);">16px</span></div>
+                  <div class="setting-desc">Fine-tune Now Playing and thumbnail corner rounding.</div>
+                </div>
+                <div class="setting-control-col">
+                  <input type="range" id="setting-art-radius" class="setting-range" min="0" max="44" step="2" value="16">
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Crop Thumbnails to 1:1</div>
+                  <div class="setting-desc">Crops widescreen YouTube 16:9 covers into clean square artwork without black bars.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-crop-thumbs" checked><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Hide Player Thumbnail</div>
+                  <div class="setting-desc">Hides artwork in fullscreen Now Playing for pure distraction-free listening.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-hide-player-thumb"><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Player Seekbar Style</div>
+                  <div class="setting-desc">Animated Material 3 Wavy squiggle, Standard, Thick Pill, Circular, or Simple bar.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-slider-style" class="setting-select">
+                    <option value="wavy">Wavy Squiggle (OpenTune Mobile)</option>
+                    <option value="standard">Standard Sleek Bar</option>
+                    <option value="thick">Thick Bold Pill</option>
+                    <option value="circular">Circular Halo</option>
+                    <option value="simple">Simple Minimal</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Synced Lyrics Animation</div>
+                  <div class="setting-desc">Controls how active LRC lines animate and fill as vocals progress.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-lyrics-anim" class="setting-select">
+                    <option value="apple">Apple Music (Glow &amp; Scale)</option>
+                    <option value="karaoke">Karaoke Word Fill</option>
+                    <option value="glow">Ambient Neon Halo</option>
+                    <option value="slide">Smooth Sweep</option>
+                    <option value="fade">Soft Crossfade</option>
+                    <option value="none">Instant (No Animation)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Lyrics Text Alignment</div>
+                  <div class="setting-desc">Align synced lyrics Left, Center, or Right in both drawer and fullscreen.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-lyrics-align" class="setting-select">
+                    <option value="center">Center</option>
+                    <option value="left">Left</option>
+                    <option value="right">Right</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Lyrics Text Size: <span id="setting-lyrics-size-val" style="color:var(--accent);">24px</span></div>
+                  <div class="setting-desc">Adjust active &amp; upcoming lyric font scale.</div>
+                </div>
+                <div class="setting-control-col">
+                  <input type="range" id="setting-lyrics-size" class="setting-range" min="16" max="34" step="1" value="24">
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Lyrics Line Spacing: <span id="setting-lyrics-spacing-val" style="color:var(--accent);">1.35x</span></div>
+                  <div class="setting-desc">Controls vertical breathing room between lyric lines.</div>
+                </div>
+                <div class="setting-control-col">
+                  <input type="range" id="setting-lyrics-spacing" class="setting-range" min="1.1" max="1.8" step="0.05" value="1.35">
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Auto Scroll Lyrics</div>
+                  <div class="setting-desc">Automatically centers the currently sung line during playback.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-lyrics-autoscroll" checked><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Click Lyric Line to Seek</div>
+                  <div class="setting-desc">Tap any synced lyric line to jump straight to that timestamp.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-lyrics-click-seek" checked><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Lyrics Depth Blur &amp; Dimming</div>
+                  <div class="setting-desc">Blurs distant lyric lines while keeping the active line razor-sharp.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-lyrics-blur" checked><span class="switch-slider"></span></label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Group 3: Audio & Playback Engine -->
+            <div class="settings-group" data-cat="audio">
+              <div class="settings-group-header">
+                <span class="settings-icon-badge bento-green"><svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></span>
+                <div class="settings-group-title">Audio &amp; Playback</div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Audio Quality</div>
+                  <div class="setting-desc">Preferred streaming bitrate and badge indicator.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-audio-quality" class="setting-select">
+                    <option value="high">High (256 kbps AAC)</option>
+                    <option value="standard" selected>Standard (160 kbps Opus)</option>
+                    <option value="low">Data Saver (64 kbps)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Audio Loudness Normalization</div>
+                  <div class="setting-desc">Real-time Web Audio compressor balances track volumes automatically.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-audio-normalization" checked><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Loudness &amp; Clarity Booster: <span id="setting-loudness-boost-val" style="color:var(--accent);">+0 dB</span></div>
+                  <div class="setting-desc">Pre-amp output gain boost for quiet tracks (+0 dB to +6 dB).</div>
+                </div>
+                <div class="setting-control-col">
+                  <input type="range" id="setting-loudness-boost" class="setting-range" min="0" max="6" step="1" value="0">
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Track Crossfade</div>
+                  <div class="setting-desc">Smooth transition overlap when changing songs.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-crossfade" class="setting-select">
+                    <option value="0">Off (Gapless)</option>
+                    <option value="3">3 seconds</option>
+                    <option value="5" selected>5 seconds</option>
+                    <option value="8">8 seconds</option>
+                    <option value="12">12 seconds</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Fast Seek Jump Duration</div>
+                  <div class="setting-desc">Seconds skipped per Left/Right arrow key press.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-fast-seek" class="setting-select">
+                    <option value="5">5 seconds</option>
+                    <option value="10" selected>10 seconds</option>
+                    <option value="15">15 seconds</option>
+                    <option value="30">30 seconds</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Auto-Play Similar Songs (Radio)</div>
+                  <div class="setting-desc">Automatically queues recommended tracks when your queue ends.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-autoplay-radio" checked><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Persistent Playback Queue</div>
+                  <div class="setting-desc">Restores your active queue and track position when reopening OpenTune.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-persistent-queue" checked><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Permanent Shuffle Mode</div>
+                  <div class="setting-desc">Keeps Shuffle active whenever you open OpenTune or start a new playlist.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-permanent-shuffle"><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Auto Download on Like</div>
+                  <div class="setting-desc">Automatically saves a song offline as soon as you tap the Heart button.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-auto-dl-like"><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Skip Silence</div>
+                  <div class="setting-desc">Skips silent intros/outros smoothly.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-skip-silence"><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Audio Output Device</div>
+                  <div class="setting-desc">Route audio to your preferred speakers, DAC, or headphones.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-audio-output" class="setting-select">
+                    <option value="">System Default Output</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Show Previously Played Songs in Queue</div>
+                  <div class="setting-desc">Hide already-played tracks from Up Next Queue by default while keeping Back history intact.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-show-played-queue"><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Mini-Player PiP Always on Top</div>
+                  <div class="setting-desc">Keeps the compact Picture-in-Picture player floating above other windows.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-pip-on-top" checked><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Track Change Notifications</div>
+                  <div class="setting-desc">Shows a subtle song banner when the track changes while OpenTune is in the background.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-track-notifications"><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Pause When Muted / Volume is 0</div>
+                  <div class="setting-desc">Pauses playback automatically if audio is muted or volume drops to 0%.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-pause-zero-vol"><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Auto Skip on Error</div>
+                  <div class="setting-desc">Automatically advances to the next track if a stream fails to load.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-auto-skip-error" checked><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Symbols to Split Artists</div>
+                  <div class="setting-desc">Separators used to split multi-artist credits into individual clickable links.</div>
+                </div>
+                <div class="setting-control-col">
+                  <input type="text" id="setting-artist-split" class="setting-text-input" value=", &amp; feat. ft. x /" placeholder=", &amp; feat. x">
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Stop Music on Application Close</div>
+                  <div class="setting-desc">Stops playback cleanly when quitting OpenTune.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-stop-on-close" checked><span class="switch-slider"></span></label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Group 4: Always On Display (AOD / Ambient Screensaver Mode) -->
+            <div class="settings-group" data-cat="aod">
+              <div class="settings-group-header" style="justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <span class="settings-icon-badge bento-teal"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg></span>
+                  <div class="settings-group-title">Always On Display (Ambient Mode)</div>
+                </div>
+                <button id="btn-launch-aod-group" class="btn-primary-action m3-pill-btn" type="button" style="padding:7px 16px; font-size:0.82rem;">Open AOD Screen</button>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">AOD Style</div>
+                  <div class="setting-desc">Choose Classic, Ambient Artwork Glow, or Minimal OLED AOD presentation.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-aod-style" class="setting-select">
+                    <option value="classic">Classic</option>
+                    <option value="ambient">Ambient Glow</option>
+                    <option value="minimal">Minimal Clock</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">AOD Artwork Shape</div>
+                  <div class="setting-desc">Frame shape used on the Always On Display screen.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-aod-art-shape" class="setting-select">
+                    <option value="rounded">Rounded</option>
+                    <option value="circle">Circle</option>
+                    <option value="squircle">Squircle</option>
+                    <option value="diamond">Diamond Cut</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">AOD Button Style</div>
+                  <div class="setting-desc">Control button styling inside AOD mode.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-aod-btn-style" class="setting-select">
+                    <option value="rounded">Soft Rounded</option>
+                    <option value="square">Squircle</option>
+                    <option value="accent">Accent Tinted</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">AOD Scale &amp; Darkness: <span id="setting-aod-darkness-val" style="color:var(--accent);">82%</span></div>
+                  <div class="setting-desc">Adjust AOD artwork scale and ambient dimming level.</div>
+                </div>
+                <div class="setting-control-col" style="gap:10px; flex-wrap:wrap;">
+                  <input type="range" id="setting-aod-rel-size" class="setting-range" min="75" max="125" step="5" value="100" title="Artwork Size %">
+                  <input type="range" id="setting-aod-darkness" class="setting-range" min="45" max="96" step="1" value="82" title="Background Darkness %">
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Visible AOD Elements</div>
+                  <div class="setting-desc">Toggle individual AOD components cleanly.</div>
+                </div>
+                <div class="setting-control-col aod-chip-toggles">
+                  <label class="aod-check-pill"><input type="checkbox" id="setting-aod-show-clock" checked><span>Clock</span></label>
+                  <label class="aod-check-pill"><input type="checkbox" id="setting-aod-show-title" checked><span>Title</span></label>
+                  <label class="aod-check-pill"><input type="checkbox" id="setting-aod-show-artist" checked><span>Artist</span></label>
+                  <label class="aod-check-pill"><input type="checkbox" id="setting-aod-show-time" checked><span>Time</span></label>
+                  <label class="aod-check-pill"><input type="checkbox" id="setting-aod-show-progress" checked><span>Progress</span></label>
+                  <label class="aod-check-pill"><input type="checkbox" id="setting-aod-show-controls" checked><span>Controls</span></label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Group 5: Accessibility, Content, Storage, Privacy, Backup & About -->
+            <div class="settings-group" data-cat="storage">
+              <div class="settings-group-header">
+                <span class="settings-icon-badge bento-amber"><svg viewBox="0 0 24 24"><path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.89-2-2-2zm0 14H5V8h14v10z"/></svg></span>
+                <div class="settings-group-title">Downloads, Content &amp; Accessibility</div>
+              </div>
+
+              <div class="setting-row" style="flex-wrap: wrap; gap: 12px;">
+                <div class="setting-label-col">
+                  <div class="setting-label">Download Save Location</div>
+                  <div class="setting-desc">Folder where downloaded songs and playlists are saved: <code id="setting-download-path-display" style="color: var(--accent); font-size: 0.78rem; word-break: break-all;">Downloads/OpenTune</code></div>
+                </div>
+                <div class="setting-control-col" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                  <button id="btn-choose-download-dir" class="btn-primary-action" style="padding: 8px 14px; font-size: 0.82rem;">Change Folder...</button>
+                  <button id="btn-open-download-dir" class="btn-subtle" style="padding: 8px 12px; font-size: 0.82rem;">Open</button>
+                  <button id="btn-reset-download-dir" class="btn-subtle" style="padding: 8px 12px; font-size: 0.82rem;">Reset</button>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Trending Country / Region</div>
+                  <div class="setting-desc">Determines charts and trending tracks on Home and Explore.</div>
+                </div>
+                <div class="setting-control-col">
+                  <select id="setting-country" class="setting-select">
+                    <option value="US">United States (US)</option>
+                    <option value="GB">United Kingdom (GB)</option>
+                    <option value="IN">India (IN)</option>
+                    <option value="ES">Spain (ES)</option>
+                    <option value="MX">Mexico (MX)</option>
+                    <option value="FR">France (FR)</option>
+                    <option value="DE">Germany (DE)</option>
+                    <option value="JP">Japan (JP)</option>
+                    <option value="BR">Brazil (BR)</option>
+                    <option value="CA">Canada (CA)</option>
+                    <option value="AU">Australia (AU)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Filter Explicit Content</div>
+                  <div class="setting-desc">Hide explicit tracks when browsing search results and suggestions.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-filter-explicit"><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">High Contrast Mode</div>
+                  <div class="setting-desc">Boosts borders, icons, and text contrast for accessibility.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-high-contrast"><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Large Text Mode</div>
+                  <div class="setting-desc">Enlarges song titles, lyrics, and navigation labels across the app.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-large-text"><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Reduced Motion</div>
+                  <div class="setting-desc">Disables animations and ambient glow transitions.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-reduced-motion"><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Desktop Keyboard Shortcuts</div>
+                  <div class="setting-desc">Space (Play/Pause), Left/Right (Fast Seek), A (AOD Mode), F (Fullscreen), E (Equalizer).</div>
+                </div>
+                <div class="setting-control-col">
+                  <button id="btn-show-shortcuts" class="btn-subtle" style="padding: 7px 14px;">View Shortcuts</button>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Pause Listening History</div>
+                  <div class="setting-desc">Stop recording newly played songs into history &amp; stats.</div>
+                </div>
+                <div class="setting-control-col">
+                  <label class="switch"><input type="checkbox" id="setting-pause-history"><span class="switch-slider"></span></label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">Cache, History &amp; Backup</div>
+                  <div class="setting-desc">Clear cached streams, reset stats, or export/import your OpenTune library JSON.</div>
+                </div>
+                <div class="setting-control-col" style="gap: 8px; flex-wrap: wrap;">
+                  <button id="btn-clear-cache-settings" class="btn-subtle" style="padding: 7px 12px;">Clear Cache</button>
+                  <button id="btn-clear-history-settings" class="btn-subtle" style="padding: 7px 12px; color: #ff5252;">Clear History</button>
+                  <button id="btn-reset-stats-settings" class="btn-subtle" style="padding: 7px 12px;">Reset Stats</button>
+                  <button id="btn-export-backup" class="btn-subtle" style="padding: 7px 12px;">Export Backup</button>
+                  <button id="btn-import-backup-trigger" class="btn-subtle" style="padding: 7px 12px;">Import Backup</button>
+                  <input type="file" id="file-import-backup" accept=".json" style="display: none;">
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <div class="setting-label">About OpenTune Desktop Edition</div>
+                  <div class="setting-desc">Version 3.0.8 • Open source YouTube Music client with Material Design 3 Expressive.</div>
+                </div>
+                <div class="setting-control-col">
+                  <span style="font-size: 0.88rem; font-weight: 700; color: var(--accent);">v3.0.8</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- Right Side Drawer (Synced Lyrics & Queue) -->
+      <aside id="side-drawer" class="side-drawer">
+        <div class="drawer-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="drawer-title" class="drawer-title">Synced Lyrics</span>
+            <span id="lyrics-source-badge" style="font-size: 0.72rem; padding: 2px 7px; border-radius: 4px; background: rgba(255,255,255,0.08); color: var(--accent); display: none;"></span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span id="drawer-lyrics-actions" style="display: inline-flex; align-items: center; gap: 6px;">
+              <button id="btn-search-lyrics-open" class="btn-subtle" style="font-size: 0.75rem; padding: 4px 9px;" title="Find / Search Lyrics Online">
+                <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg> Find
+              </button>
+              <button id="btn-edit-lyrics-open" class="btn-subtle" style="font-size: 0.75rem; padding: 4px 9px;" title="Edit or Adjust Lyrics">
+                <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 000-1.41l-2.34-2.34a.996.996 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg> Edit
+              </button>
+            </span>
+            <button id="drawer-close" class="drawer-close-btn">&times;</button>
+          </div>
+        </div>
+        <div class="drawer-content">
+          <!-- Lyrics View -->
+          <div id="lyrics-drawer-view" class="lyrics-container">
+            <div class="lyrics-empty">No lyrics available. Play a song to view lyrics.</div>
+          </div>
+          <button id="drawer-lyrics-resync-btn" class="lyrics-resync-pill" type="button" style="display: none;" title="Jump back to currently singing lyric">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+            Sync Lyrics
+          </button>
+          <!-- Queue View -->
+          <div id="queue-drawer-view" style="display: none;">
+            <div id="queue-toolbar" class="queue-toolbar">
+              <div id="queue-summary" class="queue-summary">0 tracks</div>
+              <div class="queue-toolbar-actions">
+                <button id="btn-edit-queue" class="btn-subtle btn-compact" title="Reorder or remove items from queue">
+                  <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 000-1.41l-2.34-2.34a.996.996 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg> Edit Queue
+                </button>
+                <button id="btn-shuffle-queue" class="btn-subtle btn-compact" title="Shuffle remaining queue">
+                  <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+                </button>
+                <button id="btn-toggle-played-queue" class="btn-subtle btn-compact" style="display: none;" title="Show or hide previously played songs">Played</button>
+                <button id="btn-save-queue-playlist" class="btn-subtle btn-compact" title="Save current queue as a playlist">
+                  <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></svg>
+                </button>
+                <button id="btn-clear-queue" class="btn-subtle btn-compact" style="color: #ff6b6b;" title="Clear queue">Clear</button>
+              </div>
+            </div>
+            <div id="queue-track-list" class="queue-list-container"></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Bottom Desktop Player Bar -->
+    <footer class="player-bar">
+      <!-- Left: Track info -->
+      <div class="player-left">
+        <div class="player-thumb-wrap" id="player-thumb-trigger" title="Expand Now Playing">
+          <img id="player-thumb" class="player-thumb" src="assets/icon.png" alt="Cover">
+        </div>
+        <div class="player-meta">
+          <span id="player-title" class="player-title">OpenTune</span>
+          <div class="player-submeta">
+            <span id="player-artist" class="player-artist clickable-meta-link">Ready to play</span>
+            <span id="player-meta-sep" class="player-meta-sep" style="display: none;">&bull;</span>
+            <span id="player-album" class="player-album clickable-meta-link" style="display: none;"></span>
+          </div>
+        </div>
+        <button id="player-like-btn" class="player-like-btn" title="Like">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        </button>
+      </div>
+
+      <!-- Center: Controls & Scrubber -->
+      <div class="player-center">
+        <div class="player-controls">
+          <button id="btn-shuffle" class="ctrl-btn" title="Shuffle">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+          </button>
+          <button id="btn-prev" class="ctrl-btn" title="Previous">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+          </button>
+          <button id="btn-play-pause" class="ctrl-btn play-pause" title="Play">
+            <svg id="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="icon-pause" viewBox="0 0 24 24" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          </button>
+          <button id="btn-next" class="ctrl-btn" title="Next">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+          </button>
+          <button id="btn-repeat" class="ctrl-btn ctrl-repeat-btn" title="Repeat: Off">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+            <span id="player-repeat-one-badge" class="repeat-one-badge">1</span>
+          </button>
+        </div>
+
+        <div class="player-timeline">
+          <span id="time-current" class="time-label">0:00</span>
+          <div id="progress-track" class="progress-track">
+            <svg class="seek-wave-svg" aria-hidden="true" preserveAspectRatio="none">
+              <path class="seek-wave-bg" />
+              <path class="seek-wave-fg" />
+            </svg>
+            <div id="progress-fill" class="progress-fill">
+              <div class="progress-thumb"></div>
+            </div>
+          </div>
+          <span id="time-total" class="time-label">0:00</span>
+        </div>
+      </div>
+
+      <!-- Right: Volume & panel buttons -->
+      <div class="player-right">
+        <button id="player-sleep-btn" class="ctrl-btn" title="Sleep Timer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+          <span id="player-sleep-indicator" style="display:none; font-size:0.7rem; font-weight:700; margin-left:3px; color:var(--accent);"></span>
+        </button>
+        <button id="player-speed-btn" class="btn-subtle btn-compact" title="Playback Speed">1.0x</button>
+        <button id="player-eq-btn" class="ctrl-btn" title="10-Band Equalizer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18h2V6H7v12zm4 4h2V2h-2v20zm-8-8h2v-4H3v4zm12 4h2V6h-2v12zm4-8v4h2v-4h-2z"/></svg>
+        </button>
+        <button id="player-lyrics-btn" class="ctrl-btn" title="Lyrics">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V8h10v2z"/></svg>
+        </button>
+        <button id="player-queue-btn" class="ctrl-btn" title="Queue">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M4 10h12v2H4zm0-4h12v2H4zm0 8h8v2H4zm10 0v6l5-3z"/></svg>
+        </button>
+        <button id="player-mini-btn" class="ctrl-btn" title="Mini-Player Mode">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z"/></svg>
+        </button>
+        <button id="player-fullscreen-btn" class="ctrl-btn" title="Expand Now Playing">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+        </button>
+
+        <div class="volume-container">
+          <button id="btn-mute" class="ctrl-btn" style="width: 28px; height: 28px;" title="Mute/Unmute">
+            <svg id="icon-vol" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+          </button>
+          <div id="volume-track" class="volume-track">
+            <div id="volume-fill" class="volume-fill"></div>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card" style="max-width: 580px;">
+        <div class="modal-header">
+          <h3>Sign in to YouTube Music</h3>
+          <button id="login-modal-close" class="drawer-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="auth-tab-bar">
+            <button id="auth-tab-device" class="auth-tab-btn active">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+              Google Code (Recommended)
+            </button>
+            <button id="auth-tab-webview" class="auth-tab-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.89-2-2-2zm0 14H5V8h14v10z"/></svg>
+              Embedded Window
+            </button>
+            <button id="auth-tab-cookie" class="auth-tab-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M21.58 16.09l-1.09-7.66C20.21 6.46 18.52 5 16.53 5H7.47C5.48 5 3.79 6.46 3.51 8.43l-1.09 7.66C2.2 17.63 3.39 19 4.94 19h14.12c1.55 0 2.74-1.37 2.52-2.91z"/></svg>
+              Manual Cookie
+            </button>
+          </div>
+
+          <!-- Pane 1: Google RFC 8628 Device Authorization (100% Works - No Google Embedded Block) -->
+          <div id="pane-auth-device" class="auth-pane">
+            <p style="color: var(--text-secondary); font-size: 0.86rem; margin-bottom: 16px; line-height: 1.5;">
+              Sign in securely via your default browser where you are already signed into Google. This bypasses Google's embedded webview block completely:
+            </p>
+
+            <div class="device-auth-box">
+              <div class="device-code-label">YOUR ONE-TIME AUTHORIZATION CODE</div>
+              <div id="device-auth-code" class="device-auth-code">Generating code...</div>
+              
+              <div class="device-auth-actions">
+                <button id="device-auth-copy-btn" class="btn-subtle" type="button">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                  <span id="device-auth-copy-text">Copy Code</span>
+                </button>
+                <button id="device-auth-open-browser-btn" class="btn-primary-action" type="button">
+                  <span>Open google.com/device</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+                </button>
+              </div>
+
+              <div id="device-auth-status" class="device-auth-status">
+                <span class="pulsing-radar-dot"></span>
+                <span id="device-auth-status-text">Waiting for code confirmation in browser...</span>
+              </div>
+            </div>
+
+            <div class="auth-step-row">
+              <div class="auth-step-num">1</div>
+              <div>Click <strong>Copy Code</strong> or <strong>Open google.com/device</strong> to open Google's device verification in your browser.</div>
+            </div>
+            <div class="auth-step-row">
+              <div class="auth-step-num">2</div>
+              <div>Paste your code into the prompt on Google's page, select your account, and click <strong>Allow</strong>.</div>
+            </div>
+            <div class="auth-step-row">
+              <div class="auth-step-num">3</div>
+              <div>OpenTune will instantly detect your authorization and load your liked songs, playlists, and recommendations.</div>
+            </div>
+          </div>
+
+          <!-- Pane 2: Embedded Window -->
+          <div id="pane-auth-webview" class="auth-pane" style="display: none;">
+            <p style="color: var(--text-secondary); font-size: 0.86rem; margin-bottom: 20px; line-height: 1.5;">
+              Launches an in-app browser window loading YouTube Music with stealth user-agent headers. Note that Google accounts with strict 2FA or passkeys may still request normal browser sign-in.
+            </p>
+
+            <button id="modal-google-signin-btn" class="btn-primary-action" style="width: 100%; justify-content: center; padding: 12px; margin-bottom: 16px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+              <span>Launch In-App YouTube Music Window</span>
+            </button>
+          </div>
+
+          <!-- Pane 3: Cookie String Import -->
+          <div id="pane-auth-cookie" class="auth-pane" style="display: none;">
+            <p style="color: var(--text-secondary); font-size: 0.86rem; margin-bottom: 16px; line-height: 1.5;">
+              Import an existing YouTube Music session cookie from your browser (e.g. Chrome DevTools Network tab or OpenTune Android backup):
+            </p>
+
+            <div style="margin-bottom: 16px;">
+              <label style="display: block; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 6px;">
+                Cookie String (containing SAPISID or LOGIN_INFO):
+              </label>
+              <textarea id="modal-cookie-input" rows="4" placeholder="SAPISID=...; __Secure-3PSID=...; LOGIN_INFO=..." style="width: 100%; background: var(--bg-surface); border: var(--glass-border); border-radius: var(--radius-sm); color: var(--text-primary); font-family: monospace; font-size: 0.8rem; padding: 10px; outline: none; resize: vertical;"></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+              <button id="modal-save-cookie-btn" class="btn-primary-action" type="button">
+                Save & Connect Cookie
+              </button>
+            </div>
+          </div>
+
+          <div id="modal-status-msg" style="margin-top: 14px; font-size: 0.86rem; text-align: center; display: none;"></div>
+        </div>
+      </div>
+    </div>
+
+<!-- Keyboard Shortcuts Modal -->
+    <div id="shortcuts-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Keyboard Shortcuts</h3>
+          <button id="shortcuts-modal-close" class="drawer-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <table class="track-table">
+            <tbody>
+              <tr><td style="font-weight:600;"><kbd class="kbd-key">Space</kbd></td><td>Play / Pause current track</td></tr>
+              <tr><td style="font-weight:600;"><kbd class="kbd-key">N</kbd> / <kbd class="kbd-key">P</kbd></td><td>Next / Previous track in queue</td></tr>
+              <tr><td style="font-weight:600;"><kbd class="kbd-key">&larr;</kbd> / <kbd class="kbd-key">&rarr;</kbd></td><td>Seek backwards / forwards 5 seconds</td></tr>
+              <tr><td style="font-weight:600;"><kbd class="kbd-key">&uarr;</kbd> / <kbd class="kbd-key">&darr;</kbd></td><td>Volume Up / Down 5%</td></tr>
+              <tr><td style="font-weight:600;"><kbd class="kbd-key">M</kbd></td><td>Mute / Unmute audio</td></tr>
+              <tr><td style="font-weight:600;"><kbd class="kbd-key">L</kbd></td><td>Toggle Synced Lyrics drawer</td></tr>
+              <tr><td style="font-weight:600;"><kbd class="kbd-key">Q</kbd></td><td>Toggle Playback Queue drawer</td></tr>
+              <tr><td style="font-weight:600;"><kbd class="kbd-key">F</kbd></td><td>Expand / Collapse Now Playing</td></tr>
+              <tr><td style="font-weight:600;"><kbd class="kbd-key">E</kbd></td><td>Open 10-Band Equalizer</td></tr>
+              <tr><td style="font-weight:600;"><kbd class="kbd-key">I</kbd></td><td>Toggle Mini-Player Mode</td></tr>
+              <tr><td style="font-weight:600;"><kbd class="kbd-key">S</kbd></td><td>Toggle Shuffle mode</td></tr>
+              <tr><td style="font-weight:600;"><kbd class="kbd-key">R</kbd></td><td>Cycle Repeat mode (Off, All, One)</td></tr>
+              <tr><td style="font-weight:600;"><kbd class="kbd-key">Ctrl+K</kbd> / <kbd class="kbd-key">/</kbd></td><td>Focus Search bar</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+<!-- Create Playlist Modal -->
+    <div id="create-playlist-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Create New Playlist</h3>
+          <button id="create-playlist-modal-close" class="drawer-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div style="margin-bottom: 16px;">
+            <label style="display: block; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 6px;">Playlist Name</label>
+            <input type="text" id="create-playlist-name" placeholder="My Awesome Playlist" style="width: 100%; background: var(--bg-surface); border: var(--glass-border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 0.9rem; outline: none;">
+          </div>
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 6px;">Description (Optional)</label>
+            <textarea id="create-playlist-desc" rows="2" placeholder="Custom collection of favorite songs" style="width: 100%; background: var(--bg-surface); border: var(--glass-border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 0.85rem; outline: none; resize: vertical;"></textarea>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button id="create-playlist-cancel-btn" class="btn-subtle" type="button">Cancel</button>
+            <button id="create-playlist-confirm-btn" class="btn-primary-action" type="button">Create Playlist</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+<!-- Import YouTube Playlist Modal -->
+    <div id="import-playlist-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Import YouTube Music Playlist</h3>
+          <button id="import-playlist-modal-close" class="drawer-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p style="font-size: 0.86rem; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;">
+            Paste any YouTube or YouTube Music playlist link or ID (e.g. <code>https://music.youtube.com/playlist?list=...</code> or <code>PL...</code>) to instantly import all songs and artwork into your library:
+          </p>
+          <div style="margin-bottom: 16px;">
+            <label style="display: block; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 6px;">Playlist Link or ID</label>
+            <input type="text" id="import-playlist-input" placeholder="https://music.youtube.com/playlist?list=PL..." style="width: 100%; background: var(--bg-surface); border: var(--glass-border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 0.9rem; outline: none;">
+          </div>
+          <div id="import-playlist-status" style="margin-bottom: 14px; font-size: 0.85rem; display: none;"></div>
+          <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button id="import-playlist-cancel-btn" class="btn-subtle" type="button">Cancel</button>
+            <button id="import-playlist-confirm-btn" class="btn-primary-action" type="button">Import Playlist</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+<!-- Add to Playlist Modal -->
+    <div id="add-to-playlist-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Add to Playlist</h3>
+          <button id="add-to-playlist-close" class="drawer-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p id="add-to-playlist-song-title" style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 16px;">Select playlist:</p>
+          <div id="add-to-playlist-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto;">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+<!-- Sleep Timer Modal -->
+    <div id="sleep-timer-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card" style="max-width: 400px;">
+        <div class="modal-header">
+          <h3>Sleep Timer</h3>
+          <button id="sleep-timer-modal-close" class="drawer-close-btn">&times;</button>
+        </div>
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: 10px;">
+          <button class="btn-subtle sleep-option-btn" data-minutes="15" style="justify-content: flex-start; padding: 12px 18px;">15 Minutes</button>
+          <button class="btn-subtle sleep-option-btn" data-minutes="30" style="justify-content: flex-start; padding: 12px 18px;">30 Minutes</button>
+          <button class="btn-subtle sleep-option-btn" data-minutes="45" style="justify-content: flex-start; padding: 12px 18px;">45 Minutes</button>
+          <button class="btn-subtle sleep-option-btn" data-minutes="60" style="justify-content: flex-start; padding: 12px 18px;">1 Hour</button>
+          <button class="btn-subtle sleep-option-btn" data-minutes="end_of_track" style="justify-content: flex-start; padding: 12px 18px;">End of Current Track</button>
+          <button class="btn-subtle sleep-option-btn" data-minutes="0" style="justify-content: flex-start; padding: 12px 18px; color: #ff5252;">Turn Off Timer</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Lyrics Search & Finder Modal -->
+    <div id="lyrics-search-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card" style="max-width: 600px;">
+        <div class="modal-header">
+          <div>
+            <h3 style="margin: 0; font-size: 1.15rem;">Lyrics Finder</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">Search LRCLIB and online databases for synced or plain lyrics</p>
+          </div>
+          <button id="lyrics-search-modal-close" class="drawer-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+            <input type="text" id="lyrics-search-query-input" placeholder="Song title and artist..." style="flex: 1; background: var(--bg-surface); border: var(--glass-border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 0.88rem; outline: none;">
+            <button id="lyrics-search-submit-btn" class="btn-primary-action" style="padding: 10px 18px;">Search</button>
+          </div>
+          <div id="lyrics-search-status" style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 12px; display: none;"></div>
+          <div id="lyrics-search-results-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow-y: auto;">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lyrics Editor & Timing Offset Modal -->
+    <div id="lyrics-edit-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card" style="max-width: 620px;">
+        <div class="modal-header">
+          <div>
+            <h3 style="margin: 0; font-size: 1.15rem;">Edit Lyrics & Sync Offset</h3>
+            <p id="lyrics-edit-song-label" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">Editing lyrics for current song</p>
+          </div>
+          <button id="lyrics-edit-modal-close" class="drawer-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <!-- Timing Sync Offset Bar -->
+          <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface); border: var(--glass-border); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 16px;">
+            <div>
+              <div style="font-size: 0.85rem; font-weight: 600;">Lyrics Timing Offset</div>
+              <div style="font-size: 0.78rem; color: var(--text-secondary);">Shift synchronized karaoke timestamps earlier or later</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button id="lyrics-offset-minus" class="btn-subtle" style="padding: 4px 10px; font-size: 0.82rem;" title="Show lyrics 0.5s earlier">-0.5s</button>
+              <span id="lyrics-offset-display" style="font-size: 0.85rem; font-weight: 700; color: var(--accent); min-width: 48px; text-align: center;">0.0s</span>
+              <button id="lyrics-offset-plus" class="btn-subtle" style="padding: 4px 10px; font-size: 0.82rem;" title="Show lyrics 0.5s later">+0.5s</button>
+              <button id="lyrics-offset-reset" class="btn-subtle" style="padding: 4px 8px; font-size: 0.76rem;" title="Reset offset">Reset</button>
+            </div>
+          </div>
+
+          <!-- Raw Lyrics Textarea -->
+          <div style="margin-bottom: 16px;">
+            <label style="display: block; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 6px;">
+              Lyrics Text (Supports plain text or synchronized <code>[mm:ss.xx]</code> format):
+            </label>
+            <textarea id="lyrics-edit-textarea" rows="11" placeholder="[00:12.30] Line 1&#10;[00:16.80] Line 2..." style="width: 100%; background: var(--bg-surface); border: var(--glass-border); border-radius: var(--radius-sm); color: var(--text-primary); font-family: monospace; font-size: 0.82rem; padding: 12px; outline: none; resize: vertical; line-height: 1.5;"></textarea>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <button id="lyrics-edit-reset-btn" class="btn-subtle" style="color: #ff5252;" type="button">Reset to Online Lyrics</button>
+            <div style="display: flex; gap: 10px;">
+              <button id="lyrics-edit-cancel-btn" class="btn-subtle" type="button">Cancel</button>
+              <button id="lyrics-edit-save-btn" class="btn-primary-action" type="button">Save & Apply Lyrics</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Song Context Menu -->
+    <div id="song-context-menu" class="song-context-menu" style="display: none;">
+      <div class="context-menu-item" id="ctx-play-next">
+        <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        <span>Play Next</span>
+      </div>
+      <div class="context-menu-item" id="ctx-add-queue">
+        <svg viewBox="0 0 24 24"><path d="M4 10h12v2H4zm0-4h12v2H4zm0 8h8v2H4zm10 0v6l5-3z"/></svg>
+        <span>Add to Queue</span>
+      </div>
+      <div class="context-menu-item" id="ctx-add-playlist">
+        <svg viewBox="0 0 24 24"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></svg>
+        <span>Add to Playlist...</span>
+      </div>
+      <div class="context-menu-item" id="ctx-go-artist">
+        <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        <span>Go to Artist</span>
+      </div>
+      <div class="context-menu-item" id="ctx-go-album" style="display: none;">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/></svg>
+        <span>Go to Album</span>
+      </div>
+      <div class="context-menu-item" id="ctx-start-radio">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+        <span>Start Radio</span>
+      </div>
+      <div class="context-menu-item" id="ctx-toggle-like">
+        <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        <span id="ctx-like-text">Like Song</span>
+      </div>
+      <div class="context-menu-item" id="ctx-copy-link">
+        <svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
+        <span>Copy Song Link</span>
+      </div>
+      <div class="context-menu-item" id="ctx-download-track">
+        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        <span>Download Track</span>
+      </div>
+    </div>
+
+    <!-- 10-Band Audio Equalizer Modal -->
+    <div id="eq-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card" style="max-width: 680px;">
+        <div class="modal-header">
+          <div>
+            <h3 style="margin: 0;">10-Band Audio Equalizer</h3>
+            <p style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px;">Shape real-time playback frequencies and acoustic profile</p>
+          </div>
+          <button id="eq-modal-close" class="drawer-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="eq-topbar">
+            <label class="eq-enable-toggle">
+              <label class="switch">
+                <input type="checkbox" id="eq-enabled-checkbox">
+                <span class="switch-slider"></span>
+              </label>
+              <span style="font-weight: 600; font-size: 0.86rem;">Enable Equalizer</span>
+            </label>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <select id="eq-preset-select" class="setting-select">
+                <option value="flat">Flat (Default)</option>
+                <option value="bass">Bass Boost</option>
+                <option value="treble">Treble Boost</option>
+                <option value="vocal">Vocal Clarity</option>
+                <option value="rock">Rock</option>
+                <option value="electronic">Electronic / EDM</option>
+                <option value="acoustic">Acoustic</option>
+                <option value="latenight">Late Night</option>
+                <option value="custom">Custom</option>
+              </select>
+              <button id="eq-reset-btn" class="btn-subtle btn-compact" type="button">Reset</button>
+            </div>
+          </div>
+          <div id="eq-bands-container" class="eq-bands-container"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expanded Now Playing Sheet (Slides Up From Bottom Bar) -->
+    <div id="now-playing-fullscreen" class="now-playing-fullscreen" style="display: none;">
+      <div id="np-ambient-bg" class="np-ambient-bg"></div>
+      <div class="np-sheet-grabber" aria-hidden="true"><span></span></div>
+      <div class="now-playing-topbar">
+        <button id="btn-collapse-now-playing" class="btn-subtle" title="Collapse Now Playing">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+          <span>Minimize</span>
+        </button>
+        <div class="now-playing-tabs">
+          <button id="np-tab-cover" class="np-tab active">Cover</button>
+          <button id="np-tab-lyrics" class="np-tab">Karaoke Lyrics</button>
+          <button id="np-tab-queue" class="np-tab">Up Next</button>
+        </div>
+        <div class="now-playing-top-actions">
+          <button id="np-btn-search-lyrics" class="btn-subtle btn-compact" style="display: none;" title="Search Lyrics Online">
+            <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg> Find Lyrics
+          </button>
+          <button id="np-btn-edit-lyrics" class="btn-subtle btn-compact" style="display: none;" title="Edit Lyrics">
+            <svg class="btn-svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 000-1.41l-2.34-2.34a.996.996 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg> Edit Lyrics
+          </button>
+          <button id="np-eq-btn" class="ctrl-btn" title="Equalizer">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18h2V6H7v12zm4 4h2V2h-2v20zm-8-8h2v-4H3v4zm12 4h2V6h-2v12zm4-8v4h2v-4h-2z"/></svg>
+          </button>
+          <button id="np-sleep-btn" class="ctrl-btn" title="Sleep Timer">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+            <span id="np-sleep-badge" style="display: none; font-size: 0.72rem; margin-left: 4px; font-weight: 700; color: var(--accent);"></span>
+          </button>
+          <button id="np-speed-btn" class="btn-subtle btn-compact" title="Playback Speed">1.0x</button>
+          <button id="np-mini-btn" class="ctrl-btn" title="Switch to Mini-Player">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z"/></svg>
+          </button>
+          <button id="np-aod-btn" class="ctrl-btn" title="Always On Display (AOD)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="now-playing-body">
+        <div id="np-cover-container" class="np-cover-container">
+          <img id="np-cover-img" class="np-cover-img" src="assets/icon.png" alt="Album Cover">
+        </div>
+        <div id="np-lyrics-container" class="np-lyrics-container" style="display: none;">
+          <div id="np-lyrics-content" class="lyrics-container">
+            <div class="lyrics-empty">No lyrics loaded for this track.</div>
+          </div>
+          <button id="np-lyrics-resync-btn" class="lyrics-resync-pill" type="button" style="display: none;" title="Jump back to currently singing lyric">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+            Sync Lyrics
+          </button>
+        </div>
+        <div id="np-queue-container" class="np-queue-container" style="display: none;">
+          <div class="np-queue-header">
+            <span id="np-queue-count" style="font-size: 0.84rem; font-weight: 600; color: var(--text-secondary);">Up Next</span>
+            <div class="np-queue-header-actions">
+              <button id="np-btn-edit-queue" class="btn-subtle btn-compact" title="Reorder or drag songs in Up Next">Edit Order</button>
+              <button id="np-btn-shuffle-queue" class="btn-subtle btn-compact" title="Shuffle remaining queue">Shuffle</button>
+              <button id="np-btn-toggle-played-queue" class="btn-subtle btn-compact" style="display: none;" title="Show or hide previously played songs">Played</button>
+              <button id="np-open-queue-drawer" class="btn-subtle btn-compact">Queue Drawer</button>
+            </div>
+          </div>
+          <div id="np-queue-list" class="np-queue-list"></div>
+        </div>
+
+        <div class="np-meta-container">
+          <div class="np-title-row">
+            <div style="flex: 1; min-width: 0; overflow: hidden;">
+              <h1 id="np-track-title" class="np-track-title">OpenTune</h1>
+              <p id="np-track-artist" class="np-track-artist clickable-meta-link">Select a song to play</p>
+              <div id="np-track-meta-badges" class="np-track-meta-badges">
+                <button id="np-track-album" class="meta-pill-btn clickable-meta-link" type="button" style="display: none;"></button>
+                <span id="np-track-year" class="meta-pill" style="display: none;"></span>
+                <span id="np-track-duration-pill" class="meta-pill" style="display: none;"></span>
+                <span id="np-track-format-pill" class="meta-pill">OPUS • 160 kbps</span>
+              </div>
+            </div>
+            <div class="np-quick-icon-actions">
+              <button id="np-download-btn" class="np-tonal-icon-btn" title="Download Song for Offline">
+                <svg class="np-dl-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+              </button>
+              <button id="np-add-playlist-btn" class="np-tonal-icon-btn" title="Add to Playlist">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></svg>
+              </button>
+              <button id="np-like-btn" class="np-tonal-icon-btn player-like-btn" title="Like Song">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              </button>
+              <button id="np-more-btn" class="np-tonal-icon-btn" title="More Song Actions">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="player-timeline" style="width: 100%; margin: 16px 0 12px;">
+            <span id="np-time-current" class="time-label">0:00</span>
+            <div id="np-progress-track" class="progress-track">
+              <svg class="seek-wave-svg" aria-hidden="true" preserveAspectRatio="none">
+                <path class="seek-wave-bg" />
+                <path class="seek-wave-fg" />
+              </svg>
+              <div id="np-progress-fill" class="progress-fill">
+                <div class="progress-thumb"></div>
+              </div>
+            </div>
+            <span id="np-time-total" class="time-label">0:00</span>
+          </div>
+
+          <div class="np-controls-row">
+            <button id="np-shuffle-btn" class="ctrl-btn np-squircle-btn" title="Shuffle">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+            </button>
+            <button id="np-prev-btn" class="ctrl-btn np-squircle-btn" title="Previous">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+            </button>
+            <button id="np-play-pause-btn" class="ctrl-btn play-pause np-play-squircle" title="Play">
+              <svg id="np-icon-play" viewBox="0 0 24 24" style="width: 32px; height: 32px;"><path d="M8 5v14l11-7z"/></svg>
+              <svg id="np-icon-pause" viewBox="0 0 24 24" style="width: 32px; height: 32px; display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            </button>
+            <button id="np-next-btn" class="ctrl-btn np-squircle-btn" title="Next">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+            </button>
+            <button id="np-repeat-btn" class="ctrl-btn ctrl-repeat-btn np-squircle-btn" title="Repeat: Off">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+              <span id="np-repeat-one-badge" class="repeat-one-badge">1</span>
+            </button>
+          </div>
+
+          <div class="np-bottom-actions">
+            <button id="np-quick-queue-btn" class="np-bottom-pill" title="Up Next Queue">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+              <span>Queue</span>
+            </button>
+            <button id="np-quick-radio-btn" class="np-bottom-pill" title="Start Radio Mix">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3.24 6.15C2.51 6.43 2 7.17 2 8v12c0 1.1.89 2 2 2h16c1.11 0 2-.9 2-2V8c0-1.11-.89-2-2-2H8.3l8.26-3.34L15.88 1 3.24 6.15zM7 20c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm13-8h-2v-2h-2v2H4V8h16v4z"/></svg>
+              <span>Radio</span>
+            </button>
+            <button id="np-quick-lyrics-btn" class="np-bottom-pill" title="Karaoke Lyrics">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+              <span>Lyrics</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Always On Display (AOD / Ambient Screensaver Mode, Matching Mobile AOD Screens) -->
+    <div id="aod-overlay" class="aod-overlay" style="display: none;" data-aod-style="ambient">
+      <div id="aod-backdrop" class="aod-backdrop"></div>
+      <button id="aod-exit-btn" class="aod-exit-pill" type="button" title="Exit AOD Mode (Esc)">Exit AOD</button>
+      <div class="aod-center-stage">
+        <div id="aod-clock" class="aod-clock">12:00</div>
+        <div id="aod-art-wrap" class="aod-art-wrap">
+          <img id="aod-cover-img" class="aod-cover-img" src="assets/icon.png" alt="Cover">
+        </div>
+        <div class="aod-meta">
+          <div id="aod-track-title" class="aod-track-title">OpenTune</div>
+          <div id="aod-track-artist" class="aod-track-artist">Select a song to play</div>
+        </div>
+        <div id="aod-progress-wrap" class="aod-progress-wrap">
+          <span id="aod-time-cur" class="aod-time">0:00</span>
+          <div class="aod-progress-bar"><div id="aod-progress-fill" class="aod-progress-fill"></div></div>
+          <span id="aod-time-tot" class="aod-time">0:00</span>
+        </div>
+        <div id="aod-controls" class="aod-controls">
+          <button id="aod-prev-btn" class="aod-ctrl-btn" type="button" title="Previous">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+          </button>
+          <button id="aod-play-pause-btn" class="aod-ctrl-btn aod-play-btn" type="button" title="Play/Pause">
+            <svg id="aod-icon-play" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="aod-icon-pause" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          </button>
+          <button id="aod-next-btn" class="aod-ctrl-btn" type="button" title="Next">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Non-blocking Toast Container -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <!-- Native HTML5 Audio Engine -->
+    <audio id="audio-player" crossorigin="anonymous" preload="auto"></audio>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
+

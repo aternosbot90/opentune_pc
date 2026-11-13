@@ -1,0 +1,81 @@
+# Dependency Directories
+node_modules/
+jspm_packages/
+web_modules/
+
+# Production Build & Packaging Output
+dist/
+dist_mac/
+build/
+out/
+bin/
+*.exe
+*.dmg
+*.deb
+*.rpm
+*.AppImage
+*.snap
+*.zip
+*.tar.gz
+*.blockmap
+builder-effective-config.yaml
+builder-debug.yml
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime / Local Session & Cache
+.cache/
+tmp/
+temp/
+*.tmp
+*.temp
+session.json
+tokens.json
+credentials.json
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# IDE & Editor Settings
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+*.lcov
+
