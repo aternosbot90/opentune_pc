@@ -157,6 +157,9 @@ npm run build:dir
 
 ## Deployment & Distribution
 
+> [!TIP]
+> **Detailed In-App Auto-Update Guide**: For complete, step-by-step instructions on publishing updates that download and install seamlessly in-app on Windows and macOS without opening a browser, see [AUTO_UPDATE_GUIDE.md](AUTO_UPDATE_GUIDE.md).
+
 When releasing a new version of OpenTune Desktop:
 
 1. **Verify Version Number**:
