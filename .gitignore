@@ -112,6 +112,11 @@ core.*
 /server/.env
 /server/package-lock.json
 
+# Environment variables & secrets
+.env
+.env.*
+desktop/.env
+
 # AI code review
 /.qodo/
 /.github/copilot-instructions.md
