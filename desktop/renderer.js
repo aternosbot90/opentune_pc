@@ -15,9 +15,11 @@ window.addEventListener('unhandledrejection', function (event) {
 // High-Resolution Cover Art Helper
 function cleanArtistName(raw) {
   if (!raw || typeof raw !== 'string') return '';
-  const cleaned = raw
-    .replace(/\s*[-–—]\s*topic\b/gi, '')
+  let cleaned = raw
+    .replace(/\s*[-–—:]\s*topic\b/gi, '')
     .replace(/\s*\(topic\)\s*/gi, '')
+    .replace(/\bTopic\b/gi, '')
+    .replace(/\s*[-–—]\s*$/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
   return cleaned || raw.trim();
@@ -1505,15 +1507,45 @@ function setVolume(v) {
   }
 }
 
-volumeTrack.addEventListener('click', (e) => {
+let isDraggingVolume = false;
+
+function updateVolumeFromPointer(e) {
+  if (!volumeTrack) return;
   const rect = volumeTrack.getBoundingClientRect();
-  const ratio = (e.clientX - rect.left) / rect.width;
+  if (rect.width <= 0) return;
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
   setVolume(ratio);
-  if (state.isMuted) {
+  if (state.isMuted && ratio > 0) {
     state.isMuted = false;
-    btnMute.classList.remove('active');
+    btnMute?.classList.remove('active');
   }
-});
+}
+
+if (volumeTrack) {
+  volumeTrack.addEventListener('pointerdown', (e) => {
+    isDraggingVolume = true;
+    try { volumeTrack.setPointerCapture(e.pointerId); } catch (_) {}
+    volumeTrack.classList.add('dragging');
+    updateVolumeFromPointer(e);
+  });
+
+  volumeTrack.addEventListener('pointermove', (e) => {
+    if (isDraggingVolume) {
+      updateVolumeFromPointer(e);
+    }
+  });
+
+  const stopVolumeDrag = (e) => {
+    if (isDraggingVolume) {
+      isDraggingVolume = false;
+      try { volumeTrack.releasePointerCapture(e.pointerId); } catch (_) {}
+      volumeTrack.classList.remove('dragging');
+    }
+  };
+
+  volumeTrack.addEventListener('pointerup', stopVolumeDrag);
+  volumeTrack.addEventListener('pointercancel', stopVolumeDrag);
+}
 
 btnMute.addEventListener('click', () => {
   state.isMuted = !state.isMuted;
@@ -5320,13 +5352,27 @@ const npLyricsContainer = document.getElementById('np-lyrics-container');
 const npQueueContainer = document.getElementById('np-queue-container');
 let lastNpTrackId = null;
 
+let isVideoMode = false;
+
 function setNowPlayingTab(tabName) {
   const activeTab = tabName || 'cover';
   npTabCover?.classList.toggle('active', activeTab === 'cover');
   npTabLyrics?.classList.toggle('active', activeTab === 'lyrics');
   npTabQueue?.classList.toggle('active', activeTab === 'queue');
 
-  if (npCoverContainer) npCoverContainer.style.display = activeTab === 'cover' ? 'block' : 'none';
+  const npVideoContainer = document.getElementById('np-video-container');
+  const npModeSwitcher = document.getElementById('np-mode-switcher');
+
+  if (activeTab === 'cover') {
+    if (npModeSwitcher) npModeSwitcher.style.display = 'inline-flex';
+    if (npCoverContainer) npCoverContainer.style.display = isVideoMode ? 'none' : 'block';
+    if (npVideoContainer) npVideoContainer.style.display = isVideoMode ? 'block' : 'none';
+  } else {
+    if (npModeSwitcher) npModeSwitcher.style.display = 'none';
+    if (npCoverContainer) npCoverContainer.style.display = 'none';
+    if (npVideoContainer) npVideoContainer.style.display = 'none';
+  }
+
   if (npLyricsContainer) npLyricsContainer.style.display = activeTab === 'lyrics' ? 'block' : 'none';
   if (npQueueContainer) npQueueContainer.style.display = activeTab === 'queue' ? 'flex' : 'none';
 
@@ -5345,6 +5391,57 @@ function setNowPlayingTab(tabName) {
     });
   }
 }
+
+function setSongVideoMode(mode) {
+  const songBtn = document.getElementById('np-mode-song-btn');
+  const videoBtn = document.getElementById('np-mode-video-btn');
+  const coverCont = document.getElementById('np-cover-container');
+  const videoCont = document.getElementById('np-video-container');
+  const videoFrame = document.getElementById('np-video-frame');
+
+  if (mode === 'video') {
+    if (!state.currentTrack?.id) {
+      showToast('Select a song first to view video');
+      return;
+    }
+    isVideoMode = true;
+    songBtn?.classList.remove('active');
+    videoBtn?.classList.add('active');
+    if (coverCont) coverCont.style.display = 'none';
+    if (videoCont) videoCont.style.display = 'block';
+
+    const curTime = Math.max(0, Math.floor(audio.currentTime || 0));
+    audio.pause();
+    state.isPlaying = false;
+    updatePlayPauseUI();
+
+    const videoId = state.currentTrack.id;
+    if (videoFrame) {
+      videoFrame.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&start=${curTime}&enablejsapi=1`;
+    }
+    showToast('Switched to Video mode 🎬');
+  } else {
+    isVideoMode = false;
+    songBtn?.classList.add('active');
+    videoBtn?.classList.remove('active');
+    if (videoCont) videoCont.style.display = 'none';
+    if (coverCont) coverCont.style.display = 'block';
+
+    if (videoFrame) {
+      videoFrame.src = '';
+    }
+    if (state.currentTrack) {
+      audio.play().then(() => {
+        state.isPlaying = true;
+        updatePlayPauseUI();
+      }).catch(err => console.warn('Audio play notice:', err));
+    }
+    showToast('Switched to Song mode 🎵');
+  }
+}
+
+document.getElementById('np-mode-song-btn')?.addEventListener('click', () => setSongVideoMode('song'));
+document.getElementById('np-mode-video-btn')?.addEventListener('click', () => setSongVideoMode('video'));
 
 let npCloseTimer = null;
 
@@ -5487,6 +5584,15 @@ function syncNowPlayingUI() {
   if (formatPill) {
     const qualMap = { high: 'M4A • 256 kbps', standard: 'OPUS • 160 kbps', low: 'AAC • 64 kbps' };
     formatPill.textContent = qualMap[settings.audioQuality] || 'OPUS • 160 kbps';
+    formatPill.onclick = () => openSongInfoModal();
+  }
+
+  if (isVideoMode && track.id) {
+    const videoFrame = document.getElementById('np-video-frame');
+    if (videoFrame && !videoFrame.src.includes(track.id)) {
+      const curTime = Math.max(0, Math.floor(audio.currentTime || 0));
+      videoFrame.src = `https://www.youtube-nocookie.com/embed/${track.id}?autoplay=1&start=${curTime}&enablejsapi=1`;
+    }
   }
 
   if (typeof syncAodOverlay === 'function') syncAodOverlay();
@@ -5522,6 +5628,199 @@ document.getElementById('np-quick-queue-btn')?.addEventListener('click', () => s
 document.getElementById('np-quick-lyrics-btn')?.addEventListener('click', () => setNowPlayingTab('lyrics'));
 document.getElementById('np-quick-radio-btn')?.addEventListener('click', () => {
   if (state.currentTrack) startRadioFromTrack(state.currentTrack);
+});
+
+// Comments Modal (YouTube Comments & User Commenting)
+const commentsModal = document.getElementById('comments-modal');
+const commentsModalClose = document.getElementById('comments-modal-close');
+const commentsList = document.getElementById('comments-list');
+const commentsCountBadge = document.getElementById('comments-count-badge');
+const commentInput = document.getElementById('comment-input');
+const commentPostBtn = document.getElementById('comment-post-btn');
+const commentStatusMsg = document.getElementById('comment-status-msg');
+
+async function openCommentsModal() {
+  if (!state.currentTrack?.id) {
+    showToast('Select a song to view comments');
+    return;
+  }
+  if (commentsModal) commentsModal.style.display = 'flex';
+  if (commentsList) commentsList.innerHTML = '<div class="comments-loading">Loading comments...</div>';
+  if (commentStatusMsg) {
+    commentStatusMsg.textContent = '';
+    commentStatusMsg.style.color = '';
+  }
+  if (commentInput) commentInput.value = '';
+
+  try {
+    const res = await window.api.getTrackComments(state.currentTrack.id);
+    if (!res || !Array.isArray(res.comments) || res.comments.length === 0) {
+      if (commentsList) commentsList.innerHTML = '<div class="comments-empty">No comments found for this song.</div>';
+      if (commentsCountBadge) commentsCountBadge.textContent = '0';
+      return;
+    }
+
+    if (commentsCountBadge) commentsCountBadge.textContent = res.totalCount || String(res.comments.length);
+    renderCommentsList(res.comments);
+  } catch (err) {
+    if (commentsList) commentsList.innerHTML = `<div class="comments-empty">Could not load comments: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderCommentsList(comments) {
+  if (!commentsList) return;
+  commentsList.innerHTML = comments.map(c => `
+    <div class="comment-item">
+      <img class="comment-avatar" src="${escapeHtml(c.authorAvatar || 'assets/icon.png')}" alt="${escapeHtml(c.author)}" onerror="this.src='assets/icon.png'">
+      <div class="comment-body">
+        <div class="comment-header-line">
+          <span class="comment-author">${escapeHtml(c.author)}</span>
+          ${c.isPinned ? '<span class="comment-pinned-badge">Pinned</span>' : ''}
+          <span class="comment-time">${escapeHtml(c.publishedTime || '')}</span>
+        </div>
+        <div class="comment-text">${escapeHtml(c.text)}</div>
+        ${c.likeCount && c.likeCount !== '0' ? `
+          <div class="comment-footer-line">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
+            <span>${escapeHtml(c.likeCount)}</span>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function postCommentAction() {
+  const text = commentInput?.value?.trim();
+  if (!text) {
+    if (commentStatusMsg) {
+      commentStatusMsg.textContent = 'Please enter a comment';
+      commentStatusMsg.style.color = '#e57373';
+    }
+    return;
+  }
+  if (!state.currentTrack?.id) return;
+
+  if (commentPostBtn) commentPostBtn.disabled = true;
+  if (commentStatusMsg) {
+    commentStatusMsg.textContent = 'Posting comment...';
+    commentStatusMsg.style.color = 'var(--text-muted)';
+  }
+
+  try {
+    const res = await window.api.postTrackComment(state.currentTrack.id, text);
+    if (res && res.success) {
+      if (commentInput) commentInput.value = '';
+      if (commentStatusMsg) {
+        commentStatusMsg.textContent = 'Comment posted successfully!';
+        commentStatusMsg.style.color = '#81c784';
+      }
+      showToast('Comment posted! 🎉');
+      const newItem = document.createElement('div');
+      newItem.className = 'comment-item';
+      newItem.innerHTML = `
+        <img class="comment-avatar" src="assets/icon.png" alt="You">
+        <div class="comment-body">
+          <div class="comment-header-line">
+            <span class="comment-author">You</span>
+            <span class="comment-time">Just now</span>
+          </div>
+          <div class="comment-text">${escapeHtml(text)}</div>
+        </div>
+      `;
+      commentsList?.prepend(newItem);
+    } else {
+      throw new Error(res?.error || 'Failed to post comment');
+    }
+  } catch (err) {
+    if (commentStatusMsg) {
+      commentStatusMsg.textContent = err.message || 'Login required to post comments';
+      commentStatusMsg.style.color = '#e57373';
+    }
+  } finally {
+    if (commentPostBtn) commentPostBtn.disabled = false;
+  }
+}
+
+document.getElementById('np-comments-btn')?.addEventListener('click', openCommentsModal);
+document.getElementById('np-quick-comments-btn')?.addEventListener('click', openCommentsModal);
+commentsModalClose?.addEventListener('click', () => {
+  if (commentsModal) commentsModal.style.display = 'none';
+});
+commentPostBtn?.addEventListener('click', postCommentAction);
+
+// Song Info & Stats Modal (Likes, Dislikes, Rating, Views, Release Date)
+const songInfoModal = document.getElementById('song-info-modal');
+const songInfoModalClose = document.getElementById('song-info-modal-close');
+
+async function openSongInfoModal() {
+  if (!state.currentTrack?.id) {
+    showToast('Select a song to view stats & info');
+    return;
+  }
+  const track = state.currentTrack;
+  if (songInfoModal) songInfoModal.style.display = 'flex';
+
+  const titleEl = document.getElementById('info-track-title');
+  const artistEl = document.getElementById('info-track-artist');
+  const coverEl = document.getElementById('info-track-cover');
+  const viewsEl = document.getElementById('info-stat-views');
+  const likesEl = document.getElementById('info-stat-likes');
+  const dislikesEl = document.getElementById('info-stat-dislikes');
+  const ratingEl = document.getElementById('info-stat-rating');
+  const ratingPctEl = document.getElementById('info-rating-pct');
+  const ratingFillEl = document.getElementById('info-rating-fill');
+  const dateEl = document.getElementById('info-stat-date');
+  const formatEl = document.getElementById('info-stat-format');
+  const durationEl = document.getElementById('info-stat-duration');
+  const descEl = document.getElementById('info-stat-description');
+
+  if (titleEl) titleEl.textContent = track.title || 'Unknown Title';
+  if (artistEl) artistEl.textContent = cleanArtistName(track.artist || 'Unknown Artist');
+  if (coverEl) coverEl.src = upgradeCover(track.thumbnail, 400);
+
+  const qualMap = { high: 'M4A • 256 kbps (High Fidelity)', standard: 'OPUS • 160 kbps (Standard)', low: 'AAC • 64 kbps (Data Saver)' };
+  if (formatEl) formatEl.textContent = qualMap[settings.audioQuality] || 'OPUS • 160 kbps (Standard)';
+  if (durationEl) durationEl.textContent = track.duration || formatTime(audio.duration || 0);
+
+  if (viewsEl) viewsEl.textContent = 'Loading...';
+  if (likesEl) likesEl.textContent = 'Loading...';
+  if (dislikesEl) dislikesEl.textContent = 'Loading...';
+  if (ratingEl) ratingEl.textContent = 'Loading...';
+  if (dateEl) dateEl.textContent = 'Loading...';
+  if (descEl) descEl.textContent = 'Fetching description & metadata...';
+
+  try {
+    const details = await window.api.getTrackDetails(track.id);
+    if (!details) return;
+
+    if (viewsEl) viewsEl.textContent = typeof details.views === 'number' ? Number(details.views).toLocaleString() : (details.views || '--');
+    if (likesEl) likesEl.textContent = typeof details.likes === 'number' ? Number(details.likes).toLocaleString() : (details.likes || '--');
+    if (dislikesEl) dislikesEl.textContent = typeof details.dislikes === 'number' ? Number(details.dislikes).toLocaleString() : (details.dislikes || '--');
+
+    const totalVotes = (Number(details.likes) || 0) + (Number(details.dislikes) || 0);
+    let pct = 100;
+    if (totalVotes > 0) {
+      pct = Math.round(((Number(details.likes) || 0) / totalVotes) * 100);
+    } else if (details.rating) {
+      pct = Math.round((details.rating / 5) * 100);
+    }
+    if (ratingEl) ratingEl.textContent = `${pct}% Positive (${details.rating ? details.rating + '/5' : 'Excellent'})`;
+    if (ratingPctEl) ratingPctEl.textContent = `Community Approval: ${pct}%`;
+    if (ratingFillEl) ratingFillEl.style.width = `${pct}%`;
+
+    if (dateEl) dateEl.textContent = details.uploadDate || track.year || 'Available on YouTube Music';
+    if (descEl) descEl.textContent = details.description || 'No detailed description provided by creator.';
+  } catch (err) {
+    console.warn('Song info notice:', err.message);
+    if (descEl) descEl.textContent = 'Basic metadata loaded from active playback session.';
+  }
+}
+
+document.getElementById('np-track-format-pill')?.addEventListener('click', openSongInfoModal);
+document.getElementById('np-quick-info-btn')?.addEventListener('click', openSongInfoModal);
+songInfoModalClose?.addEventListener('click', () => {
+  if (songInfoModal) songInfoModal.style.display = 'none';
 });
 
 // Sleep Timer System (Matching OpenTune Android SleepTimer)
@@ -5599,25 +5898,95 @@ document.querySelectorAll('.sleep-option-btn').forEach(btn => {
   });
 });
 
-// Playback Speed Controller
-let currentPlaybackSpeed = 1.0;
-const speedOptions = [1.0, 1.25, 1.5, 0.75, 0.5];
+// Speed & Pitch Tweaker Modal Controller
+const speedPitchModal = document.getElementById('speed-pitch-modal');
+const speedPitchModalClose = document.getElementById('speed-pitch-modal-close');
+const tweakerSpeedSlider = document.getElementById('tweaker-speed-slider');
+const tweakerSpeedVal = document.getElementById('tweaker-speed-val');
+const tweakerPitchSlider = document.getElementById('tweaker-pitch-slider');
+const tweakerPitchVal = document.getElementById('tweaker-pitch-val');
+const tweakerPreservePitch = document.getElementById('tweaker-preserve-pitch');
+const tweakerResetBtn = document.getElementById('tweaker-reset-btn');
 
-function togglePlaybackSpeed() {
-  const curIdx = speedOptions.indexOf(currentPlaybackSpeed);
-  const nextIdx = (curIdx + 1) % speedOptions.length;
-  currentPlaybackSpeed = speedOptions[nextIdx];
-  audio.playbackRate = currentPlaybackSpeed;
+let currentPitchSemitones = 0;
 
-  const text = `${currentPlaybackSpeed}x`;
-  const speedBtn = document.getElementById('player-speed-btn');
-  const npSpeedBtn = document.getElementById('np-speed-btn');
-  if (speedBtn) speedBtn.textContent = text;
-  if (npSpeedBtn) npSpeedBtn.textContent = text;
+function syncTweakerUI() {
+  const curSpeed = audio.playbackRate || 1.0;
+  if (tweakerSpeedSlider) tweakerSpeedSlider.value = curSpeed;
+  if (tweakerSpeedVal) tweakerSpeedVal.textContent = `${Number(curSpeed).toFixed(2)}x`;
+  if (tweakerPitchSlider) tweakerPitchSlider.value = currentPitchSemitones;
+  if (tweakerPitchVal) tweakerPitchVal.textContent = currentPitchSemitones === 0 ? '0 st (Natural)' : `${currentPitchSemitones > 0 ? '+' : ''}${currentPitchSemitones} st`;
+  if (tweakerPreservePitch) tweakerPreservePitch.checked = audio.preservesPitch !== false;
 }
 
-document.getElementById('player-speed-btn')?.addEventListener('click', togglePlaybackSpeed);
-document.getElementById('np-speed-btn')?.addEventListener('click', togglePlaybackSpeed);
+function openSpeedPitchModal() {
+  if (speedPitchModal) speedPitchModal.style.display = 'flex';
+  syncTweakerUI();
+}
+
+function applyTweakerSettings(speed, pitch, preservePitch) {
+  const s = Math.max(0.25, Math.min(3.0, Number(speed) || 1.0));
+  audio.playbackRate = s;
+  audio.preservesPitch = Boolean(preservePitch);
+  currentPitchSemitones = Number(pitch) || 0;
+
+  const label = s === 1.0 && currentPitchSemitones === 0 ? '1.0x' : `${Number(s).toFixed(2)}x`;
+  const speedBtn = document.getElementById('player-speed-btn');
+  const npSpeedBtn = document.getElementById('np-speed-btn');
+  if (speedBtn) speedBtn.textContent = label;
+  if (npSpeedBtn) npSpeedBtn.textContent = label;
+
+  syncTweakerUI();
+}
+
+tweakerSpeedSlider?.addEventListener('input', (e) => {
+  applyTweakerSettings(e.target.value, currentPitchSemitones, tweakerPreservePitch?.checked);
+});
+
+tweakerPitchSlider?.addEventListener('input', (e) => {
+  const p = Number(e.target.value);
+  if (p !== 0 && tweakerPreservePitch) {
+    tweakerPreservePitch.checked = false;
+  }
+  const factor = Math.pow(2, p / 12);
+  const baseSpeed = Number(tweakerSpeedSlider?.value || 1.0);
+  applyTweakerSettings(baseSpeed * factor, p, false);
+});
+
+tweakerPreservePitch?.addEventListener('change', (e) => {
+  audio.preservesPitch = e.target.checked;
+});
+
+tweakerResetBtn?.addEventListener('click', () => {
+  applyTweakerSettings(1.0, 0, true);
+  document.querySelectorAll('.preset-chip').forEach(c => c.classList.toggle('active', c.dataset.preset === 'normal'));
+  showToast('Speed & pitch reset to default');
+});
+
+document.querySelectorAll('.preset-chip').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    const preset = btn.dataset.preset;
+    if (preset === 'normal') {
+      applyTweakerSettings(1.0, 0, true);
+    } else if (preset === 'nightcore') {
+      applyTweakerSettings(1.25, 3.8, false);
+    } else if (preset === 'slowed') {
+      applyTweakerSettings(0.85, -2.8, false);
+    } else if (preset === 'chipmunk') {
+      applyTweakerSettings(1.35, 5.2, false);
+    } else if (preset === 'deep') {
+      applyTweakerSettings(0.80, -3.8, false);
+    }
+  });
+});
+
+document.getElementById('player-speed-btn')?.addEventListener('click', openSpeedPitchModal);
+document.getElementById('np-speed-btn')?.addEventListener('click', openSpeedPitchModal);
+speedPitchModalClose?.addEventListener('click', () => {
+  if (speedPitchModal) speedPitchModal.style.display = 'none';
+});
 
 // Google Sign-In & Login Modal (Device Auth + Webview + Cookie)
 const loginBtn = document.getElementById('login-btn');

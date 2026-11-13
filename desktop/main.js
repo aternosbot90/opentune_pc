@@ -321,6 +321,33 @@ ipcMain.handle('get-artist', async (_event, artistId) => {
   }
 });
 
+ipcMain.handle('get-track-details', async (_event, videoId) => {
+  try {
+    return await ytMusic.getTrackDetails(videoId);
+  } catch (err) {
+    console.warn('Track details notice:', err.message);
+    return { videoId, error: err.message };
+  }
+});
+
+ipcMain.handle('get-track-comments', async (_event, videoId) => {
+  try {
+    return await ytMusic.getTrackComments(videoId);
+  } catch (err) {
+    console.warn('Track comments notice:', err.message);
+    return { videoId, totalCount: '0', comments: [] };
+  }
+});
+
+ipcMain.handle('post-track-comment', async (_event, { videoId, text }) => {
+  try {
+    return await ytMusic.postTrackComment(videoId, text);
+  } catch (err) {
+    console.warn('Post comment notice:', err.message);
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.handle('get-account-profile', async () => {
   try {
     return await ytMusic.getAccountProfile();
@@ -609,9 +636,11 @@ function resolveDownloadBaseDir(overrideDir) {
 
 function cleanArtistName(raw) {
   if (!raw || typeof raw !== 'string') return '';
-  const cleaned = raw
-    .replace(/\s*[-–—]\s*topic\b/gi, '')
+  let cleaned = raw
+    .replace(/\s*[-–—:]\s*topic\b/gi, '')
     .replace(/\s*\(topic\)\s*/gi, '')
+    .replace(/\bTopic\b/gi, '')
+    .replace(/\s*[-–—]\s*$/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
   return cleaned || raw.trim();

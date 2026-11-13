@@ -283,9 +283,11 @@ function upgradeThumbnail(url, size = 544) {
 // Format helpers
 function cleanArtistName(raw) {
   if (!raw || typeof raw !== 'string') return '';
-  const cleaned = raw
-    .replace(/\s*[-–—]\s*topic\b/gi, '')
+  let cleaned = raw
+    .replace(/\s*[-–—:]\s*topic\b/gi, '')
     .replace(/\s*\(topic\)\s*/gi, '')
+    .replace(/\bTopic\b/gi, '')
+    .replace(/\s*[-–—]\s*$/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
   return cleaned || raw.trim();
@@ -1825,6 +1827,104 @@ async function getExploreData() {
   }
 }
 
+// Track Details (Release Date, Views, Likes, Dislikes, Description)
+async function getTrackDetails(videoId) {
+  if (!videoId) throw new Error('Video ID is required');
+  let basic = null;
+  let dislikeData = null;
+
+  try {
+    basic = await executeMusicAction(async (yt) => {
+      const info = await yt.getBasicInfo(videoId);
+      return {
+        title: info.basic_info.title || '',
+        author: cleanArtistName(info.basic_info.author || ''),
+        channelId: info.basic_info.channel_id || '',
+        views: info.basic_info.view_count || 0,
+        uploadDate: info.basic_info.upload_date || '',
+        description: info.basic_info.short_description || '',
+        isLive: info.basic_info.is_live || false,
+        keywords: info.basic_info.keywords || []
+      };
+    });
+  } catch (err) {
+    console.warn('getBasicInfo notice:', err.message);
+  }
+
+  try {
+    const res = await fetch(`https://returnyoutubedislikeapi.com/votes?videoId=${encodeURIComponent(videoId)}`, {
+      signal: AbortSignal.timeout(4500)
+    });
+    if (res.ok) {
+      dislikeData = await res.json();
+    }
+  } catch (e) {
+    console.warn('Return YouTube Dislike API notice:', e.message);
+  }
+
+  return {
+    videoId,
+    title: basic?.title || '',
+    author: basic?.author || '',
+    channelId: basic?.channelId || '',
+    views: dislikeData?.viewCount || basic?.views || 0,
+    likes: dislikeData?.likes || 0,
+    dislikes: dislikeData?.dislikes || 0,
+    rating: dislikeData?.rating ? Number(dislikeData.rating.toFixed(2)) : null,
+    uploadDate: basic?.uploadDate || dislikeData?.dateCreated || '',
+    description: basic?.description || '',
+    keywords: basic?.keywords || []
+  };
+}
+
+// Track Comments (Read & Post)
+async function getTrackComments(videoId) {
+  if (!videoId) throw new Error('Video ID is required');
+  return executeMusicAction(async (yt) => {
+    try {
+      const comments = await yt.getComments(videoId);
+      const totalCount = comments.header?.count?.text || comments.header?.comments_count?.text || '0';
+      const list = [];
+      for (const item of (comments.contents || [])) {
+        const c = item.comment;
+        if (!c) continue;
+        list.push({
+          id: c.comment_id || '',
+          author: c.author?.name || 'Anonymous',
+          authorAvatar: c.author?.thumbnails?.[0]?.url || c.author?.avatar_thumbnail_url || 'assets/icon.png',
+          channelId: c.author?.id || '',
+          text: c.content?.text || '',
+          publishedTime: c.published_time || '',
+          likeCount: c.like_count || '0',
+          isPinned: Boolean(c.is_pinned),
+          isHearted: Boolean(c.is_hearted)
+        });
+        if (list.length >= 50) break;
+      }
+      return {
+        videoId,
+        totalCount,
+        comments: list
+      };
+    } catch (err) {
+      console.warn('getTrackComments notice:', err.message);
+      return { videoId, totalCount: '0', comments: [] };
+    }
+  });
+}
+
+async function postTrackComment(videoId, commentText) {
+  if (!videoId || !commentText?.trim()) throw new Error('Video ID and comment text are required');
+  return executeMusicAction(async (yt) => {
+    const comments = await yt.getComments(videoId);
+    if (typeof comments.createComment === 'function') {
+      const res = await comments.createComment(commentText.trim());
+      return { success: true, comment: res };
+    }
+    throw new Error('Comment creation not supported on this track');
+  });
+}
+
 module.exports = {
   getInnertube,
   getGuestInnertube,
@@ -1847,5 +1947,8 @@ module.exports = {
   getLibrary,
   createOnlinePlaylist,
   addTracksToOnlinePlaylist,
-  removeTracksFromOnlinePlaylist
+  removeTracksFromOnlinePlaylist,
+  getTrackDetails,
+  getTrackComments,
+  postTrackComment
 };
