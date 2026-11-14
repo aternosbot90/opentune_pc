@@ -2691,9 +2691,10 @@ body[data-slider-style="simple"] .progress-thumb {
 }
 
 .np-mode-btn.active {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 4px 14px var(--accent-glow);
+  background: var(--accent, #dfa067);
+  color: #140e06;
+  font-weight: 700;
+  box-shadow: 0 4px 18px rgba(223, 160, 103, 0.42);
 }
 
 .np-cover-container {
@@ -2709,19 +2710,32 @@ body[data-slider-style="simple"] .progress-thumb {
   flex-shrink: 0;
 }
 
-/* Video Mode Container */
+/* Video Mode Container - Material 3 Expressive Look */
 .np-video-container {
-  width: clamp(280px, 46vh, 560px);
+  width: clamp(320px, 52vh, 620px);
   max-width: 100%;
   display: flex;
   flex-direction: column;
-  border-radius: 20px;
+  border-radius: 24px;
   overflow: hidden;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: #000;
-  margin-bottom: 10px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(223, 160, 103, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #08090c;
+  margin-bottom: 12px;
   flex-shrink: 0;
+  position: relative;
+  transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.3s ease;
+}
+
+.np-video-ambient-glow {
+  position: absolute;
+  inset: -30px;
+  background: radial-gradient(circle at center, rgba(223, 160, 103, 0.22) 0%, transparent 70%);
+  filter: blur(40px);
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 0.4s ease;
 }
 
 .np-video-wrapper {
@@ -2729,6 +2743,8 @@ body[data-slider-style="simple"] .progress-thumb {
   width: 100%;
   aspect-ratio: 16 / 9;
   background: #000;
+  overflow: hidden;
+  z-index: 1;
 }
 
 .np-video-frame {
@@ -2739,6 +2755,49 @@ body[data-slider-style="simple"] .progress-thumb {
   height: 100%;
   border: none;
   display: block;
+  z-index: 1;
+  pointer-events: none; /* Strip native YouTube click overlays, title popups & links */
+}
+
+.np-video-click-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  transition: background 0.2s ease;
+  user-select: none;
+}
+
+.np-video-click-overlay:hover {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.np-video-play-indicator {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: rgba(18, 18, 22, 0.84);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.65);
+  opacity: 0;
+  transform: scale(0.65);
+  pointer-events: none;
+  transition: opacity 0.22s cubic-bezier(0.2, 0, 0, 1), transform 0.22s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.np-video-play-indicator.show {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .np-cover-img {
@@ -5816,10 +5875,24 @@ body[data-ui-theme="pure-black"] .settings-bento-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  background: rgba(18, 18, 22, 0.95);
+  padding: 8px 14px;
+  background: rgba(14, 15, 18, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  gap: 8px;
+  gap: 10px;
+  z-index: 2;
+}
+
+.np-video-status-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 /* Speed & Pitch Tweaker Modal Styles */

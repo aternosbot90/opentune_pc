@@ -2237,13 +2237,21 @@
           <img id="np-cover-img" class="np-cover-img" src="assets/icon.png" alt="Album Cover">
         </div>
         <div id="np-video-container" class="np-video-container" style="display: none;">
-          <div class="np-video-wrapper">
+          <div id="np-video-ambient-glow" class="np-video-ambient-glow"></div>
+          <div class="np-video-wrapper" id="np-video-wrapper">
             <iframe id="np-video-frame" class="np-video-frame" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+            <div id="np-video-click-overlay" class="np-video-click-overlay" title="Click to play/pause (Spacebar)">
+              <div id="np-video-play-indicator" class="np-video-play-indicator">
+                <svg id="np-video-indicator-play" width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                <svg id="np-video-indicator-pause" width="30" height="30" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+              </div>
+            </div>
           </div>
           <div id="np-video-fallback-bar" class="np-video-fallback-bar">
             <button id="np-video-switch-song-btn" class="btn-subtle btn-compact" type="button" title="Switch back to Song audio">
               🎵 Song Audio
             </button>
+            <div class="np-video-status-tag" id="np-video-status-tag">🎬 Sync Video</div>
             <button id="np-video-open-yt-btn" class="btn-subtle btn-compact" type="button" title="Open video in external browser">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
               Watch on YouTube ↗

@@ -1127,6 +1127,10 @@ function updatePlayPauseUI() {
 
 btnPlayPause.addEventListener('click', () => {
   if (!state.currentTrack) return;
+  if (isVideoMode) {
+    toggleVideoPlayPause();
+    return;
+  }
   const currentSrc = audio.getAttribute('src');
   if (!currentSrc || currentSrc === '' || currentSrc === window.location.href) {
     playTrack(state.currentTrack, null, state.queueIndex, {
@@ -1382,9 +1386,11 @@ function updateWaveSvgTrack(trackEl, percent, phase, isPlaying) {
 }
 
 function refreshVisualFrame(forceWave = false) {
-  const duration = audio.duration || 0;
-  const current = audio.currentTime || 0;
-  const percent = duration > 0 ? (current / duration) * 100 : 0;
+  const duration = (isVideoMode && videoDuration > 0)
+    ? videoDuration
+    : (audio.duration || parseDurationToSeconds(state.currentTrack?.duration) || 0);
+  const current = isVideoMode ? (videoCurrentTime || 0) : (audio.currentTime || 0);
+  const percent = duration > 0 ? Math.min(100, Math.max(0, (current / duration) * 100)) : 0;
 
   const npOverlay = document.getElementById('now-playing-fullscreen');
   const isNpOpen = Boolean(npOverlay && npOverlay.style.display === 'flex');
@@ -1524,13 +1530,25 @@ audio.addEventListener('ended', () => {
 });
 
 function handleSeekFromClientX(clientX, trackEl, rectOverride = null) {
-  if (!trackEl || !audio.duration) return;
+  if (!trackEl) return;
+  const targetDuration = (isVideoMode && videoDuration > 0)
+    ? videoDuration
+    : (audio.duration || parseDurationToSeconds(state.currentTrack?.duration) || 0);
+  if (!targetDuration) return;
   const rect = rectOverride || trackEl.getBoundingClientRect();
   if (!rect.width) return;
   const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-  audio.currentTime = ratio * audio.duration;
-  lastRenderedSecond = -1;
-  refreshVisualFrame(true);
+  const newTime = ratio * targetDuration;
+  if (isVideoMode) {
+    videoCurrentTime = newTime;
+    sendVideoCommand('seekTo', [newTime, true]);
+    lastRenderedSecond = -1;
+    refreshVisualFrame(true);
+  } else {
+    audio.currentTime = newTime;
+    lastRenderedSecond = -1;
+    refreshVisualFrame(true);
+  }
 }
 
 function attachSmoothSeek(trackEl) {
@@ -1571,10 +1589,17 @@ function setVolume(v) {
   state.volume = Math.max(0, Math.min(1, v));
   audio.volume = state.isMuted ? 0 : state.volume;
   volumeFill.style.width = `${state.volume * 100}%`;
+  if (isVideoMode) {
+    sendVideoCommand('setVolume', [Math.round((state.isMuted ? 0 : state.volume) * 100)]);
+  }
   if (settings.pauseOnZeroVol && state.volume <= 0.005 && state.isPlaying) {
-    audio.pause();
-    state.isPlaying = false;
-    updatePlayPauseUI();
+    if (isVideoMode) {
+      toggleVideoPlayPause();
+    } else {
+      audio.pause();
+      state.isPlaying = false;
+      updatePlayPauseUI();
+    }
   }
 }
 
@@ -1622,10 +1647,18 @@ btnMute.addEventListener('click', () => {
   state.isMuted = !state.isMuted;
   audio.volume = state.isMuted ? 0 : state.volume;
   btnMute.classList.toggle('active', state.isMuted);
+  if (isVideoMode) {
+    sendVideoCommand(state.isMuted ? 'mute' : 'unMute');
+    if (!state.isMuted) sendVideoCommand('setVolume', [Math.round(state.volume * 100)]);
+  }
   if (settings.pauseOnZeroVol && state.isMuted && state.isPlaying) {
-    audio.pause();
-    state.isPlaying = false;
-    updatePlayPauseUI();
+    if (isVideoMode) {
+      toggleVideoPlayPause();
+    } else {
+      audio.pause();
+      state.isPlaying = false;
+      updatePlayPauseUI();
+    }
   }
 });
 
@@ -2909,8 +2942,14 @@ function updateMediaSession(track) {
       console.warn('MediaSession metadata update failed:', e);
     }
 
-    navigator.mediaSession.setActionHandler('play', () => { audio.play(); state.isPlaying = true; updatePlayPauseUI(); });
-    navigator.mediaSession.setActionHandler('pause', () => { audio.pause(); state.isPlaying = false; updatePlayPauseUI(); });
+    navigator.mediaSession.setActionHandler('play', () => {
+      if (isVideoMode) toggleVideoPlayPause();
+      else { audio.play(); state.isPlaying = true; updatePlayPauseUI(); }
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+      if (isVideoMode) toggleVideoPlayPause();
+      else { audio.pause(); state.isPlaying = false; updatePlayPauseUI(); }
+    });
     navigator.mediaSession.setActionHandler('previoustrack', () => btnPrev.click());
     navigator.mediaSession.setActionHandler('nexttrack', () => btnNext.click());
     navigator.mediaSession.setActionHandler('seekto', (details) => { if (details.seekTime) audio.currentTime = details.seekTime; });
@@ -5430,6 +5469,147 @@ const npQueueContainer = document.getElementById('np-queue-container');
 let lastNpTrackId = null;
 
 let isVideoMode = false;
+let videoCurrentTime = 0;
+let videoDuration = 0;
+let videoTickerInterval = null;
+let lastVideoFramePingTs = 0;
+
+function getVideoEmbedUrl(videoId, startTime = 0) {
+  const start = Math.max(0, Math.floor(startTime));
+  return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&start=${start}&controls=0&disablekb=1&modestbranding=1&fs=0&iv_load_policy=3&playsinline=1&enablejsapi=1&origin=https://music.youtube.com&widget_referrer=https://music.youtube.com`;
+}
+
+function sendVideoCommand(func, args = []) {
+  const videoFrame = document.getElementById('np-video-frame');
+  if (videoFrame && videoFrame.contentWindow) {
+    try {
+      videoFrame.contentWindow.postMessage(JSON.stringify({
+        event: 'command',
+        func: func,
+        args: Array.isArray(args) ? args : [args]
+      }), '*');
+    } catch (e) {
+      console.warn('sendVideoCommand warning:', e);
+    }
+  }
+}
+
+function showVideoIndicator(action) {
+  const indicator = document.getElementById('np-video-play-indicator');
+  const playIcon = document.getElementById('np-video-indicator-play');
+  const pauseIcon = document.getElementById('np-video-indicator-pause');
+  if (!indicator) return;
+
+  if (action === 'play') {
+    if (playIcon) playIcon.style.display = 'block';
+    if (pauseIcon) pauseIcon.style.display = 'none';
+  } else {
+    if (playIcon) playIcon.style.display = 'none';
+    if (pauseIcon) pauseIcon.style.display = 'block';
+  }
+  indicator.classList.remove('show');
+  void indicator.offsetWidth;
+  indicator.classList.add('show');
+  setTimeout(() => {
+    indicator.classList.remove('show');
+  }, 650);
+}
+
+function toggleVideoPlayPause() {
+  if (!state.currentTrack) return;
+  if (state.isPlaying) {
+    sendVideoCommand('pauseVideo');
+    state.isPlaying = false;
+    stopVideoPlaybackTicker();
+    updatePlayPauseUI();
+    showVideoIndicator('pause');
+  } else {
+    sendVideoCommand('playVideo');
+    state.isPlaying = true;
+    startVideoPlaybackTicker();
+    updatePlayPauseUI();
+    showVideoIndicator('play');
+  }
+}
+
+function startVideoPlaybackTicker() {
+  stopVideoPlaybackTicker();
+  videoTickerInterval = setInterval(() => {
+    if (!isVideoMode || !state.isPlaying) {
+      stopVideoPlaybackTicker();
+      return;
+    }
+    const dur = videoDuration > 0 ? videoDuration : (parseDurationToSeconds(state.currentTrack?.duration) || 180);
+    videoCurrentTime = Math.min(dur, (videoCurrentTime || 0) + 0.25);
+    refreshVisualFrame(true);
+
+    const now = Date.now();
+    if (now - lastVideoFramePingTs > 2500) {
+      lastVideoFramePingTs = now;
+      sendVideoCommand('getCurrentTime');
+    }
+  }, 250);
+}
+
+function stopVideoPlaybackTicker() {
+  if (videoTickerInterval) {
+    clearInterval(videoTickerInterval);
+    videoTickerInterval = null;
+  }
+}
+
+// Global Message Listener for YouTube IFrame API communication
+window.addEventListener('message', (event) => {
+  if (!isVideoMode) return;
+  let data = event.data;
+  if (typeof data === 'string') {
+    try { data = JSON.parse(data); } catch (_) { return; }
+  }
+  if (!data || typeof data !== 'object') return;
+
+  if (data.event === 'infoDelivery' && data.info) {
+    if (typeof data.info.currentTime === 'number') {
+      videoCurrentTime = data.info.currentTime;
+      if (typeof data.info.duration === 'number' && data.info.duration > 0) {
+        videoDuration = data.info.duration;
+      }
+      refreshVisualFrame(true);
+    }
+    if (typeof data.info.playerState === 'number') {
+      // 1 = PLAYING, 2 = PAUSED, 0 = ENDED, 3 = BUFFERING
+      if (data.info.playerState === 1 && !state.isPlaying) {
+        state.isPlaying = true;
+        startVideoPlaybackTicker();
+        updatePlayPauseUI();
+      } else if (data.info.playerState === 2 && state.isPlaying) {
+        state.isPlaying = false;
+        stopVideoPlaybackTicker();
+        updatePlayPauseUI();
+      } else if (data.info.playerState === 0) {
+        stopVideoPlaybackTicker();
+        if (state.repeatMode === 'one') {
+          videoCurrentTime = 0;
+          sendVideoCommand('seekTo', [0, true]);
+          sendVideoCommand('playVideo');
+          state.isPlaying = true;
+          startVideoPlaybackTicker();
+          updatePlayPauseUI();
+        } else {
+          btnNext.click();
+        }
+      }
+    }
+  } else if (data.event === 'initialDelivery') {
+    sendVideoCommand('setVolume', [Math.round((state.isMuted ? 0 : state.volume) * 100)]);
+    if (state.isMuted) sendVideoCommand('mute');
+    if (currentPlaybackSpeed !== 1.0) sendVideoCommand('setPlaybackRate', [currentPlaybackSpeed]);
+    if (state.isPlaying) sendVideoCommand('playVideo');
+  } else if (data.event === 'onError' || (data.info && data.info.errorCode)) {
+    console.warn('Video embed restricted or failed:', data);
+    showToast('Video restricted by rights holder — playing audio seamlessly 🎵');
+    setSongVideoMode('song');
+  }
+});
 
 function setNowPlayingTab(tabName) {
   const activeTab = tabName || 'cover';
@@ -5488,14 +5668,17 @@ function setSongVideoMode(mode) {
     if (videoCont) videoCont.style.display = 'flex';
 
     const curTime = Math.max(0, Math.floor(audio.currentTime || 0));
-    audio.pause();
-    state.isPlaying = false;
+    try { audio.pause(); } catch (_) {}
+    videoCurrentTime = curTime;
+    videoDuration = parseDurationToSeconds(state.currentTrack.duration) || 0;
+    state.isPlaying = true;
     updatePlayPauseUI();
 
     const videoId = state.currentTrack.id;
     if (videoFrame) {
-      videoFrame.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&start=${curTime}&playsinline=1&rel=0`;
+      videoFrame.src = getVideoEmbedUrl(videoId, curTime);
     }
+    startVideoPlaybackTicker();
     showToast('Switched to Video mode 🎬');
   } else {
     isVideoMode = false;
@@ -5504,10 +5687,15 @@ function setSongVideoMode(mode) {
     if (videoCont) videoCont.style.display = 'none';
     if (coverCont) coverCont.style.display = 'block';
 
+    sendVideoCommand('pauseVideo');
+    stopVideoPlaybackTicker();
+
+    const resumeTime = videoCurrentTime > 0 ? videoCurrentTime : (audio.currentTime || 0);
     if (videoFrame) {
       videoFrame.src = '';
     }
     if (state.currentTrack) {
+      audio.currentTime = resumeTime;
       audio.play().then(() => {
         state.isPlaying = true;
         updatePlayPauseUI();
@@ -5520,6 +5708,11 @@ function setSongVideoMode(mode) {
 document.getElementById('np-mode-song-btn')?.addEventListener('click', () => setSongVideoMode('song'));
 document.getElementById('np-mode-video-btn')?.addEventListener('click', () => setSongVideoMode('video'));
 document.getElementById('np-video-switch-song-btn')?.addEventListener('click', () => setSongVideoMode('song'));
+document.getElementById('np-video-click-overlay')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  toggleVideoPlayPause();
+});
 document.getElementById('np-video-open-yt-btn')?.addEventListener('click', () => {
   if (state.currentTrack?.id) {
     window.api.openExternalUrl(`https://www.youtube.com/watch?v=${state.currentTrack.id}`);
@@ -5673,8 +5866,13 @@ function syncNowPlayingUI() {
   if (isVideoMode && track.id) {
     const videoFrame = document.getElementById('np-video-frame');
     if (videoFrame && !videoFrame.src.includes(track.id)) {
-      const curTime = Math.max(0, Math.floor(audio.currentTime || 0));
-      videoFrame.src = `https://www.youtube-nocookie.com/embed/${track.id}?autoplay=1&start=${curTime}&playsinline=1&rel=0`;
+      videoCurrentTime = 0;
+      videoDuration = parseDurationToSeconds(track.duration) || 0;
+      videoFrame.src = getVideoEmbedUrl(track.id, 0);
+      state.isPlaying = true;
+      startVideoPlaybackTicker();
+      updatePlayPauseUI();
+      try { audio.pause(); } catch (_) {}
     }
   }
 
@@ -6701,20 +6899,29 @@ window.addEventListener('keydown', (e) => {
     btnPlayPause.click();
   } else if (e.code === 'ArrowRight') {
     const seekStep = Math.max(1, Number(settings.fastSeek) || 10);
-    if (audio.duration) audio.currentTime = Math.min(audio.duration, audio.currentTime + seekStep);
+    if (isVideoMode) {
+      const dur = videoDuration > 0 ? videoDuration : (parseDurationToSeconds(state.currentTrack?.duration) || 180);
+      videoCurrentTime = Math.min(dur, (videoCurrentTime || 0) + seekStep);
+      sendVideoCommand('seekTo', [videoCurrentTime, true]);
+      refreshVisualFrame(true);
+    } else if (audio.duration) {
+      audio.currentTime = Math.min(audio.duration, audio.currentTime + seekStep);
+    }
   } else if (e.code === 'ArrowLeft') {
     const seekStep = Math.max(1, Number(settings.fastSeek) || 10);
-    audio.currentTime = Math.max(0, audio.currentTime - seekStep);
+    if (isVideoMode) {
+      videoCurrentTime = Math.max(0, (videoCurrentTime || 0) - seekStep);
+      sendVideoCommand('seekTo', [videoCurrentTime, true]);
+      refreshVisualFrame(true);
+    } else if (audio.duration) {
+      audio.currentTime = Math.max(0, audio.currentTime - seekStep);
+    }
   } else if (e.key === 'a' || e.key === 'A') {
     if (typeof openAodMode === 'function') openAodMode();
   } else if (e.code === 'ArrowUp') {
-    state.volume = Math.min(1, state.volume + 0.05);
-    audio.volume = state.volume;
-    volumeFill.style.width = `${state.volume * 100}%`;
+    setVolume(Math.min(1, state.volume + 0.05));
   } else if (e.code === 'ArrowDown') {
-    state.volume = Math.max(0, state.volume - 0.05);
-    audio.volume = state.volume;
-    volumeFill.style.width = `${state.volume * 100}%`;
+    setVolume(Math.max(0, state.volume - 0.05));
   } else if (e.key === 'n' || e.key === 'N') {
     btnNext.click();
   } else if (e.key === 'p' || e.key === 'P') {

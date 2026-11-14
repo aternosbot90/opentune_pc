@@ -1209,7 +1209,7 @@ app.on('child-process-gone', (_e, details) => {
 app.whenReady().then(() => {
   session.defaultSession.setUserAgent(CHROME_USER_AGENT);
 
-  // Fix YouTube Embed in Electron: supply clean matching Referer without conflicting Origin on document requests
+  // Fix YouTube Embed in Electron: supply official YouTube Music Referer & Origin to prevent Error 152-4
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: ['*://*.youtube.com/*', '*://*.youtube-nocookie.com/*', '*://*.googlevideo.com/*'] },
     (details, callback) => {
@@ -1219,11 +1219,8 @@ app.whenReady().then(() => {
       delete headers['sec-ch-ua-mobile'];
       delete headers['sec-ch-ua-platform'];
 
-      if (details.url.includes('youtube-nocookie.com')) {
-        headers['Referer'] = 'https://www.youtube-nocookie.com/';
-      } else if (details.url.includes('youtube.com')) {
-        headers['Referer'] = 'https://www.youtube.com/';
-      }
+      headers['Referer'] = 'https://music.youtube.com/';
+      headers['Origin'] = 'https://music.youtube.com';
       callback({ cancel: false, requestHeaders: headers });
     }
   );
