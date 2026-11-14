@@ -1675,6 +1675,7 @@ function openDrawer(panel) {
   }
   state.activePanel = panel;
   sideDrawer.classList.add('open');
+  document.body.classList.add('drawer-open');
 
   const lyricsActions = document.getElementById('drawer-lyrics-actions');
   const lyricsBadge = document.getElementById('lyrics-source-badge');
@@ -1698,6 +1699,7 @@ function openDrawer(panel) {
 function closeDrawer() {
   state.activePanel = null;
   sideDrawer.classList.remove('open');
+  document.body.classList.remove('drawer-open');
   if (typeof updateLyricsResyncPills === 'function') updateLyricsResyncPills();
 }
 
@@ -4202,33 +4204,110 @@ function loadLocalLikedSongs() {
   } catch (_) {}
 }
 
-function renderLikedSongs() {
+function renderLikedTrackList(tracks, totalCount = null) {
   const list = document.getElementById('liked-songs-list');
   const count = document.getElementById('liked-count');
-  count.textContent = `${state.likedSongsData.length} tracks`;
+  if (count) count.textContent = `${state.likedSongsData.length} tracks`;
+  if (!list) return;
   list.innerHTML = '';
 
-  if (state.likedSongsData.length === 0) {
-    list.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 40px; color: var(--text-muted);">No liked songs yet. Click the heart icon on any song!</td></tr>';
+  const total = totalCount !== null ? totalCount : state.likedSongsData.length;
+
+  if (!tracks || tracks.length === 0) {
+    if (total === 0) {
+      list.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 40px; color: var(--text-muted);">No liked songs yet. Click the heart icon on any song!</td></tr>';
+    } else {
+      list.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 40px; color: var(--text-muted);">No liked songs matching your filter search.</td></tr>';
+    }
     return;
   }
 
   const fragment = document.createDocumentFragment();
-  state.likedSongsData.forEach((track, idx) => {
-    fragment.appendChild(createTrackRow(track, idx + 1, state.likedSongsData));
+  tracks.forEach((track, idx) => {
+    const originalIdx = state.likedSongsData.indexOf(track);
+    const displayNumber = originalIdx >= 0 ? originalIdx + 1 : idx + 1;
+    fragment.appendChild(createTrackRow(track, displayNumber, state.likedSongsData));
   });
   list.appendChild(fragment);
 }
 
+function filterLikedSongs() {
+  const likedInput = document.getElementById('liked-search-input');
+  const likedClear = document.getElementById('liked-search-clear');
+  const likedFilterCount = document.getElementById('liked-filter-count');
+  const tracks = state.likedSongsData || [];
+
+  const query = likedInput ? (likedInput.value || '').trim().toLowerCase() : '';
+
+  if (!query) {
+    state.currentFilteredLikedTracks = null;
+    if (likedClear) likedClear.style.display = 'none';
+    if (likedFilterCount) likedFilterCount.style.display = 'none';
+    renderLikedTrackList(tracks);
+    return;
+  }
+
+  if (likedClear) likedClear.style.display = 'inline-flex';
+  const filtered = tracks.filter(t => {
+    const title = (t.title || '').toLowerCase();
+    const artist = (t.artist || '').toLowerCase();
+    const album = (t.album || '').toLowerCase();
+    return title.includes(query) || artist.includes(query) || album.includes(query);
+  });
+
+  state.currentFilteredLikedTracks = filtered;
+
+  if (likedFilterCount) {
+    likedFilterCount.style.display = 'inline-block';
+    likedFilterCount.textContent = `${filtered.length} of ${tracks.length} tracks`;
+  }
+
+  renderLikedTrackList(filtered, tracks.length);
+}
+
+function renderLikedSongs() {
+  filterLikedSongs();
+}
+
+function setupLikedFilter() {
+  const likedInput = document.getElementById('liked-search-input');
+  const likedClear = document.getElementById('liked-search-clear');
+
+  if (!likedInput) return;
+
+  likedInput.addEventListener('input', () => {
+    filterLikedSongs();
+  });
+
+  if (likedClear) {
+    likedClear.addEventListener('click', () => {
+      likedInput.value = '';
+      likedInput.focus();
+      filterLikedSongs();
+    });
+  }
+
+  likedInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      likedInput.value = '';
+      filterLikedSongs();
+      likedInput.blur();
+    }
+  });
+}
+setupLikedFilter();
+
 document.getElementById('btn-play-all-liked')?.addEventListener('click', () => {
-  if (state.likedSongsData.length > 0) {
-    playTrack(state.likedSongsData[0], state.likedSongsData);
+  const activeTracks = state.currentFilteredLikedTracks || state.likedSongsData;
+  if (activeTracks && activeTracks.length > 0) {
+    playTrack(activeTracks[0], activeTracks);
   }
 });
 
 document.getElementById('btn-shuffle-liked')?.addEventListener('click', () => {
-  if (state.likedSongsData.length > 0) {
-    const shuffled = fisherYatesShuffle(state.likedSongsData);
+  const activeTracks = state.currentFilteredLikedTracks || state.likedSongsData;
+  if (activeTracks && activeTracks.length > 0) {
+    const shuffled = fisherYatesShuffle(activeTracks);
     state.isShuffle = true;
     updateShuffleRepeatUI();
     playTrack(shuffled[0], shuffled, 0);
@@ -4236,11 +4315,12 @@ document.getElementById('btn-shuffle-liked')?.addEventListener('click', () => {
 });
 
 document.getElementById('btn-download-liked')?.addEventListener('click', () => {
-  if (state.likedSongsData.length === 0) {
+  const activeTracks = state.currentFilteredLikedTracks || state.likedSongsData;
+  if (!activeTracks || activeTracks.length === 0) {
     showToast('No liked songs to download yet.', 'info');
     return;
   }
-  startBatchDownload('Liked Songs', state.likedSongsData, document.getElementById('btn-download-liked'), document.getElementById('liked-download-status'));
+  startBatchDownload('Liked Songs', activeTracks, document.getElementById('btn-download-liked'), document.getElementById('liked-download-status'));
 });
 
 // Home Category Chips (Matching OpenTune Android ChipsRow.kt)
@@ -5112,10 +5192,116 @@ async function loadPlaylists() {
   renderPlaylistsSections(getLocalPlaylists(), ytPlaylists);
 }
 
+function renderPlaylistTrackList(tracks, isLocal, totalCount = null) {
+  const list = document.getElementById('detail-playlist-tracks-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  const total = totalCount !== null ? totalCount : (state.currentPlaylistTracks ? state.currentPlaylistTracks.length : 0);
+
+  if (!tracks || tracks.length === 0) {
+    if (total === 0) {
+      list.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 40px; color: var(--text-muted);">No tracks in this playlist yet. Click "•••" on any song to add it!</td></tr>';
+    } else {
+      list.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 40px; color: var(--text-muted);">No tracks found matching your filter search.</td></tr>';
+    }
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  const allTracks = state.currentPlaylistTracks || tracks;
+  tracks.forEach((track, idx) => {
+    const originalIdx = allTracks.indexOf(track);
+    const displayNumber = originalIdx >= 0 ? originalIdx + 1 : idx + 1;
+    const row = createTrackRow(track, displayNumber, allTracks);
+    if (isLocal && state.activePlaylistId) {
+      const actCell = row.querySelector('.track-col-actions');
+      if (actCell) {
+        const rmBtn = document.createElement('button');
+        rmBtn.className = 'track-action-btn remove-from-pl-btn';
+        rmBtn.title = 'Remove from playlist';
+        rmBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
+        rmBtn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          removeTrackFromLocalPlaylist(state.activePlaylistId, track);
+        });
+        actCell.prepend(rmBtn);
+      }
+    }
+    fragment.appendChild(row);
+  });
+  list.appendChild(fragment);
+}
+
+function filterCurrentPlaylist() {
+  const plSearchInput = document.getElementById('detail-playlist-search-input');
+  const plSearchClear = document.getElementById('detail-playlist-search-clear');
+  const plFilterCount = document.getElementById('detail-playlist-filter-count');
+  const tracks = state.currentPlaylistTracks || [];
+  const isLocal = !!state.isCurrentPlaylistLocal;
+
+  const query = plSearchInput ? (plSearchInput.value || '').trim().toLowerCase() : '';
+
+  if (!query) {
+    state.currentFilteredPlaylistTracks = null;
+    if (plSearchClear) plSearchClear.style.display = 'none';
+    if (plFilterCount) plFilterCount.style.display = 'none';
+    renderPlaylistTrackList(tracks, isLocal);
+    return;
+  }
+
+  if (plSearchClear) plSearchClear.style.display = 'inline-flex';
+  const filtered = tracks.filter(t => {
+    const title = (t.title || '').toLowerCase();
+    const artist = (t.artist || '').toLowerCase();
+    const album = (t.album || '').toLowerCase();
+    return title.includes(query) || artist.includes(query) || album.includes(query);
+  });
+
+  state.currentFilteredPlaylistTracks = filtered;
+
+  if (plFilterCount) {
+    plFilterCount.style.display = 'inline-block';
+    plFilterCount.textContent = `${filtered.length} of ${tracks.length} tracks`;
+  }
+
+  renderPlaylistTrackList(filtered, isLocal, tracks.length);
+}
+
+function setupPlaylistFilter() {
+  const plSearchInput = document.getElementById('detail-playlist-search-input');
+  const plSearchClear = document.getElementById('detail-playlist-search-clear');
+
+  if (!plSearchInput) return;
+
+  plSearchInput.addEventListener('input', () => {
+    filterCurrentPlaylist();
+  });
+
+  if (plSearchClear) {
+    plSearchClear.addEventListener('click', () => {
+      plSearchInput.value = '';
+      plSearchInput.focus();
+      filterCurrentPlaylist();
+    });
+  }
+
+  plSearchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      plSearchInput.value = '';
+      filterCurrentPlaylist();
+      plSearchInput.blur();
+    }
+  });
+}
+setupPlaylistFilter();
+
 function openPlaylistDetail(playlist, isLocal = false, skipBackgroundSync = false) {
+  const isDifferentPlaylist = state.activePlaylistId !== playlist.id;
   state.activePlaylistId = playlist.id;
   state.currentPlaylistTracks = playlist.tracks || [];
   state.currentPlaylistTitle = playlist.title || 'Playlist';
+  state.isCurrentPlaylistLocal = !!isLocal;
   navigateTo('playlist-detail');
 
   document.getElementById('detail-playlist-title').textContent = playlist.title;
@@ -5189,8 +5375,9 @@ function openPlaylistDetail(playlist, isLocal = false, skipBackgroundSync = fals
   const playBtn = document.getElementById('detail-playlist-play-btn');
   if (playBtn) {
     playBtn.onclick = () => {
-      if (playlist.tracks && playlist.tracks.length > 0) {
-        playTrack(playlist.tracks[0], playlist.tracks);
+      const activeTracks = state.currentFilteredPlaylistTracks || playlist.tracks;
+      if (activeTracks && activeTracks.length > 0) {
+        playTrack(activeTracks[0], activeTracks);
       }
     };
   }
@@ -5198,8 +5385,9 @@ function openPlaylistDetail(playlist, isLocal = false, skipBackgroundSync = fals
   const shuffleBtn = document.getElementById('detail-playlist-shuffle-btn');
   if (shuffleBtn) {
     shuffleBtn.onclick = () => {
-      if (playlist.tracks && playlist.tracks.length > 0) {
-        const shuffled = fisherYatesShuffle(playlist.tracks);
+      const activeTracks = state.currentFilteredPlaylistTracks || playlist.tracks;
+      if (activeTracks && activeTracks.length > 0) {
+        const shuffled = fisherYatesShuffle(activeTracks);
         state.isShuffle = true;
         updateShuffleRepeatUI();
         playTrack(shuffled[0], shuffled, 0);
@@ -5211,51 +5399,35 @@ function openPlaylistDetail(playlist, isLocal = false, skipBackgroundSync = fals
   const dlStatus = document.getElementById('detail-playlist-download-status');
   if (dlBtn) {
     dlBtn.onclick = () => {
-      if (playlist.tracks && playlist.tracks.length > 0) {
-        startBatchDownload(playlist.title, playlist.tracks, dlBtn, dlStatus);
+      const activeTracks = state.currentFilteredPlaylistTracks || playlist.tracks;
+      if (activeTracks && activeTracks.length > 0) {
+        startBatchDownload(playlist.title, activeTracks, dlBtn, dlStatus);
       }
     };
   }
 
   const qBtn = document.getElementById('detail-playlist-queue-btn');
   if (qBtn) {
-    qBtn.onclick = () => appendTracksToQueue(playlist.tracks || [], 'playlist tracks');
+    qBtn.onclick = () => {
+      const activeTracks = state.currentFilteredPlaylistTracks || playlist.tracks;
+      appendTracksToQueue(activeTracks || [], 'playlist tracks');
+    };
   }
 
   const radioBtn = document.getElementById('detail-playlist-radio-btn');
   if (radioBtn) {
     radioBtn.onclick = () => {
-      if (playlist.tracks && playlist.tracks.length > 0) startRadioFromTrack(playlist.tracks[0]);
+      const activeTracks = state.currentFilteredPlaylistTracks || playlist.tracks;
+      if (activeTracks && activeTracks.length > 0) startRadioFromTrack(activeTracks[0]);
     };
   }
 
-  const list = document.getElementById('detail-playlist-tracks-list');
-  list.innerHTML = '';
-  if (!playlist.tracks || playlist.tracks.length === 0) {
-    list.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 40px; color: var(--text-muted);">No tracks in this playlist yet. Click "•••" on any song to add it!</td></tr>';
-    return;
+  const plSearchInput = document.getElementById('detail-playlist-search-input');
+  if (isDifferentPlaylist && plSearchInput) {
+    plSearchInput.value = '';
   }
 
-  const fragment = document.createDocumentFragment();
-  playlist.tracks.forEach((track, idx) => {
-    const row = createTrackRow(track, idx + 1, playlist.tracks);
-    if (isLocal) {
-      const actCell = row.querySelector('.track-col-actions');
-      if (actCell) {
-        const rmBtn = document.createElement('button');
-        rmBtn.className = 'track-action-btn remove-from-pl-btn';
-        rmBtn.title = 'Remove from playlist';
-        rmBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
-        rmBtn.addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          removeTrackFromLocalPlaylist(playlist.id, track);
-        });
-        actCell.prepend(rmBtn);
-      }
-    }
-    fragment.appendChild(row);
-  });
-  list.appendChild(fragment);
+  filterCurrentPlaylist();
 }
 
 document.getElementById('btn-back-to-playlists')?.addEventListener('click', () => {

@@ -214,8 +214,8 @@
             <thead>
               <tr>
                 <th class="track-col-num">#</th>
-                <th>Title</th>
-                <th>Album</th>
+                <th class="track-col-title">Title</th>
+                <th class="track-col-album">Album</th>
                 <th class="track-col-duration">Time</th>
                 <th class="track-col-actions"></th>
               </tr>
@@ -253,8 +253,8 @@
             <thead>
               <tr>
                 <th class="track-col-num">#</th>
-                <th>Title</th>
-                <th>Album</th>
+                <th class="track-col-title">Title</th>
+                <th class="track-col-album">Album</th>
                 <th class="track-col-duration">Time</th>
                 <th class="track-col-actions"></th>
               </tr>
@@ -319,8 +319,8 @@
                 <thead>
                   <tr>
                     <th class="track-col-num">#</th>
-                    <th>Title</th>
-                    <th>Album</th>
+                    <th class="track-col-title">Title</th>
+                    <th class="track-col-album">Album</th>
                     <th class="track-col-duration">Time</th>
                     <th class="track-col-actions"></th>
                   </tr>
@@ -354,8 +354,8 @@
               <thead>
                 <tr>
                   <th class="track-col-num">#</th>
-                  <th>Title</th>
-                  <th>Album</th>
+                  <th class="track-col-title">Title</th>
+                  <th class="track-col-album">Album</th>
                   <th class="track-col-duration">Time</th>
                   <th class="track-col-actions"></th>
                 </tr>
@@ -376,7 +376,7 @@
 
         <!-- View: Liked Songs -->
         <section id="view-liked" class="view-section">
-          <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-end;">
+          <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px;">
             <div>
               <h1 class="section-title">Liked Songs</h1>
               <p id="liked-count" class="section-subtitle">0 tracks</p>
@@ -388,12 +388,26 @@
               <span id="liked-download-status" style="font-size: 0.84rem; color: var(--accent); display: none;"></span>
             </div>
           </div>
+
+          <!-- In-Liked Songs Search & Filter Bar -->
+          <div class="playlist-filter-bar">
+            <div class="playlist-search-box">
+              <svg class="playlist-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="liked-search-input" class="playlist-search-input" placeholder="Search in liked songs..." autocomplete="off" spellcheck="false">
+              <button id="liked-search-clear" class="playlist-search-clear-btn" type="button" style="display: none;" title="Clear search">✕</button>
+            </div>
+            <span id="liked-filter-count" class="playlist-filter-count" style="display: none;"></span>
+          </div>
+
           <table class="track-table">
             <thead>
               <tr>
                 <th class="track-col-num">#</th>
-                <th>Title</th>
-                <th>Album</th>
+                <th class="track-col-title">Title</th>
+                <th class="track-col-album">Album</th>
                 <th class="track-col-duration">Time</th>
                 <th class="track-col-actions"></th>
               </tr>
@@ -538,12 +552,26 @@
               </div>
             </div>
           </div>
+
+          <!-- In-Playlist Search & Filter Bar -->
+          <div class="playlist-filter-bar">
+            <div class="playlist-search-box">
+              <svg class="playlist-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="detail-playlist-search-input" class="playlist-search-input" placeholder="Search tracks in this playlist..." autocomplete="off" spellcheck="false">
+              <button id="detail-playlist-search-clear" class="playlist-search-clear-btn" type="button" style="display: none;" title="Clear search">✕</button>
+            </div>
+            <span id="detail-playlist-filter-count" class="playlist-filter-count" style="display: none;"></span>
+          </div>
+
           <table class="track-table">
             <thead>
               <tr>
                 <th class="track-col-num">#</th>
-                <th>Title</th>
-                <th>Album</th>
+                <th class="track-col-title">Title</th>
+                <th class="track-col-album">Album</th>
                 <th class="track-col-duration">Time</th>
                 <th class="track-col-actions"></th>
               </tr>
@@ -596,8 +624,8 @@
             <thead>
               <tr>
                 <th class="track-col-num">#</th>
-                <th>Title</th>
-                <th>Album</th>
+                <th class="track-col-title">Title</th>
+                <th class="track-col-album">Album</th>
                 <th class="track-col-duration">Time</th>
                 <th class="track-col-actions"></th>
               </tr>
@@ -660,8 +688,8 @@
               <thead>
                 <tr>
                   <th class="track-col-num">#</th>
-                  <th>Title</th>
-                  <th>Album</th>
+                  <th class="track-col-title">Title</th>
+                  <th class="track-col-album">Album</th>
                   <th class="track-col-duration">Time</th>
                   <th class="track-col-actions"></th>
                 </tr>
@@ -710,8 +738,8 @@
             <thead>
               <tr>
                 <th class="track-col-num">#</th>
-                <th>Title</th>
-                <th>Played</th>
+                <th class="track-col-title">Title</th>
+                <th class="track-col-album">Played</th>
                 <th class="track-col-duration">Time</th>
                 <th class="track-col-actions"></th>
               </tr>
@@ -749,8 +777,8 @@
             <thead>
               <tr>
                 <th class="track-col-num">#</th>
-                <th>Title</th>
-                <th>Plays</th>
+                <th class="track-col-title">Title</th>
+                <th class="track-col-album">Plays</th>
                 <th class="track-col-duration">Time</th>
                 <th class="track-col-actions"></th>
               </tr>
