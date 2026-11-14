@@ -53,7 +53,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "OpenTune"
+      "shortcutName": "OpenTune",
+      "artifactName": "OpenTune-Setup-${version}.exe"
     },
     "portable": {
       "artifactName": "OpenTune-Portable-${version}.exe"
