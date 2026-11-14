@@ -8028,8 +8028,11 @@ function initAppUpdaterUI() {
 
   function formatUpdaterErrorMessage(rawError = '') {
     const errStr = String(rawError || '');
-    if (errStr.includes('404') && (errStr.includes('releases.atom') || errStr.includes('authentication token') || errStr.includes('latest.yml'))) {
-      return 'No published releases found on GitHub. Make sure repository is Public and releases are Published (not Draft).';
+    if (errStr.includes('404') && (errStr.includes('releases.atom') || errStr.includes('authentication token') || errStr.includes('latest.yml') || errStr.includes('latest-mac.yml'))) {
+      return 'No published update package found for this platform on GitHub. Check GitHub Releases for the latest DMG or installer.';
+    }
+    if (errStr.includes('Code signature') || errStr.includes('ShipIt') || errStr.includes('code object is not signed')) {
+      return 'macOS requires an Apple Developer code-signed certificate for silent in-app updates. Download the latest DMG directly from GitHub Releases.';
     }
     if (errStr.includes('ERR_INTERNET_DISCONNECTED') || errStr.includes('ENOTFOUND')) {
       return 'Cannot connect to GitHub. Please check your internet connection.';
