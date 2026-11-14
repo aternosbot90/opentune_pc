@@ -110,14 +110,14 @@ Builds a standalone executable that runs without installation, perfect for USB d
 ```bash
 npm run build:portable
 ```
-- **Output artifact**: `dist/OpenTune-Portable-3.0.9.exe`
+- **Output artifact**: `dist/OpenTune-Portable-3.1.0.exe`
 
 #### 2. NSIS Setup Installer (`.exe`)
 Builds a standard Windows installer wizard with custom install location, desktop shortcut, and start menu entry:
 ```bash
 npm run build:installer
 ```
-- **Output artifact**: `dist/OpenTune Setup 3.0.9.exe`
+- **Output artifact**: `dist/OpenTune Setup 3.1.0.exe`
 
 #### 3. Full Production Build (Both Portable + Installer)
 Builds both the portable executable and the installer sequentially:
@@ -141,7 +141,7 @@ npm run build:mac-arm64
 # Build Intel x64 DMG
 npm run build:mac-x64
 ```
-- **Output artifact**: `dist/OpenTune-3.0.9-mac.dmg` / `dist/OpenTune-3.0.9-arm64.dmg`
+- **Output artifact**: `dist/OpenTune-3.1.0-mac.dmg` / `dist/OpenTune-3.1.0-arm64.dmg`
 
 ---
 
@@ -185,9 +185,9 @@ When releasing a new version of OpenTune Desktop:
 
 5. **Publish Assets**:
    Attach the resulting binaries to your GitHub or Codeberg Release:
-   - `OpenTune-Portable-3.0.9.exe` (Portable Windows)
-   - `OpenTune Setup 3.0.9.exe` (Windows Installer)
-   - `OpenTune-3.0.9.dmg` (macOS DMG, if built)
+   - `OpenTune-Portable-3.1.0.exe` (Portable Windows)
+   - `OpenTune Setup 3.1.0.exe` (Windows Installer)
+   - `OpenTune-3.1.0.dmg` (macOS DMG, if built)
 
 ---
 

@@ -26,13 +26,13 @@ OpenTune uses **`electron-updater`** connected to GitHub Releases (`aternosbot90
 
 ```
 +-----------------------------------------------------------------------------------+
-| 1. Developer bumps version (e.g. 3.0.9) and builds Windows / macOS packages        |
+| 1. Developer bumps version (e.g. 3.1.0) and builds Windows / macOS packages        |
 | 2. Developer uploads binary files + metadata (latest.yml / latest-mac.yml)         |
 | 3. OpenTune Desktop checks GitHub Releases automatically on startup               |
-| 4. In-App Floating Banner appears: "Update v3.0.9 Available! [Download]"          |
+| 4. In-App Floating Banner appears: "Update v3.1.0 Available! [Download]"          |
 | 5. User clicks Download -> Live percentage progress downloads inside the app       |
 | 6. Download finishes -> Button changes to "[Restart & Install]"                    |
-| 7. App closes, silently applies the update, and relaunches into v3.0.9!           |
+| 7. App closes, silently applies the update, and relaunches into v3.1.0!           |
 |    (0 browser visits required!)                                                    |
 +-----------------------------------------------------------------------------------+
 ```
@@ -61,13 +61,13 @@ Open [desktop/package.json](package.json) and update the `"version"` field:
 {
   "name": "opentune-desktop",
   "productName": "OpenTune",
-  "version": "3.0.9",   <--- Change this to your new version
+  "version": "3.1.0",   <--- Change this to your new version
   ...
 }
 ```
 
 > [!IMPORTANT]
-> Always use standard Semantic Versioning (`MAJOR.MINOR.PATCH`, e.g. `3.0.9`). The version in `package.json` must match the release tag you create on GitHub (e.g., tag `v3.0.9`).
+> Always use standard Semantic Versioning (`MAJOR.MINOR.PATCH`, e.g. `3.1.0`). The version in `package.json` must match the release tag you create on GitHub (e.g., tag `v3.1.0`).
 
 ---
 
@@ -82,7 +82,7 @@ npm run build:installer
 ```
 * **Output directory**: `desktop/dist/`
 * **Generated update files**:
-  1. `OpenTune Setup 3.0.9.exe` (NSIS Installer)
+  1. `OpenTune Setup 3.1.0.exe` (NSIS Installer)
   2. `latest.yml` (Update manifest containing SHA512 hash and file size)
 
 #### For macOS (run on macOS):
@@ -92,8 +92,8 @@ npm run build:mac
 ```
 * **Output directory**: `desktop/dist/`
 * **Generated update files**:
-  1. `OpenTune-3.0.9-macOS-Universal.dmg` (Disk image for direct manual install)
-  2. `OpenTune-3.0.9-macOS-Universal.zip` (Required by electron-updater for in-app updating)
+  1. `OpenTune-3.1.0-macOS-Universal.dmg` (Disk image for direct manual install)
+  2. `OpenTune-3.1.0-macOS-Universal.zip` (Required by electron-updater for in-app updating)
   3. `latest-mac.yml` (Update manifest containing SHA512 hash and file size)
 
 ---
@@ -105,8 +105,8 @@ npm run build:mac
    https://github.com/aternosbot90/opentune_pc/releases/new
    ```
 2. Click **"Draft a new release"**.
-3. In **"Choose a tag"**, type your new version with a leading `v` (e.g. `v3.0.9`) and click **"Create new tag on publish"**.
-4. Set the **Release title** to `OpenTune v3.0.9` (or your version name).
+3. In **"Choose a tag"**, type your new version with a leading `v` (e.g. `v3.1.0`) and click **"Create new tag on publish"**.
+4. Set the **Release title** to `OpenTune v3.1.0` (or your version name).
 5. Add release notes describing what's new (e.g., Bug fixes, audio improvements, UI refinements).
 
 ---
@@ -117,8 +117,8 @@ Drag and drop the generated files from `desktop/dist/` into the GitHub release a
 
 | Operating System | Files to Upload to the GitHub Release |
 | :--- | :--- |
-| **Windows** | 1. `OpenTune Setup 3.0.9.exe`<br>2. `latest.yml` |
-| **macOS** | 1. `OpenTune-3.0.9-macOS-Universal.zip`<br>2. `OpenTune-3.0.9-macOS-Universal.dmg`<br>3. `latest-mac.yml` |
+| **Windows** | 1. `OpenTune Setup 3.1.0.exe`<br>2. `latest.yml` |
+| **macOS** | 1. `OpenTune-3.1.0-macOS-Universal.zip`<br>2. `OpenTune-3.1.0-macOS-Universal.dmg`<br>3. `latest-mac.yml` |
 
 > [!CAUTION]
 > **Do NOT forget `latest.yml` and `latest-mac.yml`!**
@@ -195,14 +195,14 @@ Once `GH_TOKEN` is set, navigate to `desktop/` and run:
    - Users can also manually check anytime under **Settings > Storage & Data > Software Updates > [Check for Updates]**.
 2. **Notification Banner**:
    - A floating Material 3 banner slides up at the bottom:
-     > 🚀 **Update v3.0.9 Available!**
+     > 🚀 **Update v3.1.0 Available!**
      > *A new version of OpenTune is ready to download.*
      > `[Download]` `[×]`
 3. **Download with Progress Bar**:
    - When the user clicks **Download**, a real-time progress bar shows download percentage (`Downloading update: 45%...`).
 4. **Restart & Install**:
    - Once the download is finished, the button changes to:
-     > ✨ **Update v3.0.9 Ready to Install!**
+     > ✨ **Update v3.1.0 Ready to Install!**
      > *Restart OpenTune to finish applying the update.*
      > `[Restart & Install]`
    - Clicking **Restart & Install** calls `autoUpdater.quitAndInstall()`. OpenTune closes, silently applies the update, and reopens running the new version.
@@ -234,7 +234,7 @@ When publishing version `X.Y.Z`:
 ### 1. In-App Updates in Development Mode (`npm start`)
 `electron-updater` only performs live downloads and installations when running inside a **packaged application** (installed build). When testing in development (`npm start`), clicking "Check for Updates" will report:
 `Auto-updater is not available in development mode`
-To test the updater, install a built package (e.g. `v3.0.8`), publish `v3.0.9` on GitHub, and launch the installed app.
+To test the updater, install a built package (e.g. `v3.0.9`), publish `v3.1.0` on GitHub, and launch the installed app.
 
 ### 2. Windows Portable vs. Installer (.exe)
 - The **NSIS Installer** (`OpenTune Setup <version>.exe`) fully supports in-app automatic updating and silent background restarts.
