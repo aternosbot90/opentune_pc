@@ -65,10 +65,17 @@ jobs:
             desktop/dist/*.blockmap
           if-no-files-found: error
 
+      - name: Read package version
+        id: pkg_ver
+        working-directory: desktop
+        run: |
+          VER=$(node -p "require('./package.json').version")
+          echo "tag=v$VER" >> $GITHUB_OUTPUT
+
       - name: Attach macOS DMG to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.pkg_ver.outputs.tag }}
           files: |
             desktop/dist/*.dmg
             desktop/dist/*.zip
