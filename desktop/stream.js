@@ -167,7 +167,7 @@ async function ensureYtDlpBinary() {
     console.log(`[OpenTune] yt-dlp binary not found. Auto-provisioning ${binName} from ${dlUrl}...`);
     try {
       const resp = await fetch(dlUrl, {
-        headers: { 'User-Agent': 'OpenTune-Desktop/3.0.8' }
+        headers: { 'User-Agent': 'OpenTune-Desktop/3.0.9' }
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const arrayBuf = await resp.arrayBuffer();
