@@ -41,6 +41,22 @@ jobs:
           New-Item -ItemType Directory -Force -Path bin
           Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -OutFile "bin/yt-dlp.exe"
 
+      - name: Sync package version with tag
+        if: github.ref_type == 'tag'
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ($tag -match "^v?(\d+\.\d+\.\d+.*)$") {
+            $tagVer = $matches[1]
+            $pkg = Get-Content package.json | ConvertFrom-Json
+            if ($pkg.version -ne $tagVer) {
+              Write-Host "Syncing package.json version from $($pkg.version) to $tagVer"
+              $pkg.version = $tagVer
+              $pkg | ConvertTo-Json -Depth 10 | Set-Content package.json
+            }
+          }
+
       - name: Build OpenTune Windows Installer & Portable
         working-directory: desktop
         env:
@@ -62,18 +78,25 @@ jobs:
             desktop/dist/*.blockmap
           if-no-files-found: error
 
-      - name: Read package version
-        id: pkg_ver
+      - name: Determine release tag
+        id: release_tag
         working-directory: desktop
         shell: pwsh
         run: |
-          $ver = (Get-Content package.json | ConvertFrom-Json).version
-          echo "tag=v$ver" >> $env:GITHUB_OUTPUT
+          if ("${{ github.ref_type }}" -eq "tag" -and "${{ github.ref_name }}") {
+            $tag = "${{ github.ref_name }}"
+          } else {
+            $ver = (Get-Content package.json | ConvertFrom-Json).version
+            $tag = "v$ver"
+          }
+          Write-Host "Target GitHub release tag: $tag"
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
 
       - name: Attach Windows EXE to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.pkg_ver.outputs.tag }}
+          tag_name: ${{ steps.release_tag.outputs.tag }}
+          name: ${{ steps.release_tag.outputs.tag }}
           files: |
             desktop/dist/*.exe
             desktop/dist/latest.yml

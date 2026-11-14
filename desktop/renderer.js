@@ -7819,7 +7819,7 @@ function initSettingsListeners() {
 
   document.getElementById('btn-export-backup')?.addEventListener('click', () => {
     const backupData = {
-      version: '3.1.0',
+      version: '3.1.1',
       date: new Date().toISOString(),
       settings,
       likedSongs: state.likedSongsData,

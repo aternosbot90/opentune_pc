@@ -41,6 +41,16 @@ jobs:
           curl -fL "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos" -o bin/yt-dlp_macos
           chmod +x bin/yt-dlp_macos
 
+      - name: Sync package version with tag
+        if: github.ref_type == 'tag'
+        working-directory: desktop
+        run: |
+          TAG="${{ github.ref_name }}"
+          CLEAN_VER=$(echo "$TAG" | sed -E 's/^v//')
+          if [ -n "$CLEAN_VER" ]; then
+            node -e "const fs = require('fs'); const p = JSON.parse(fs.readFileSync('package.json', 'utf8')); if (p.version !== '$CLEAN_VER') { console.log('Syncing package.json version from ' + p.version + ' to $CLEAN_VER'); p.version = '$CLEAN_VER'; fs.writeFileSync('package.json', JSON.stringify(p, null, 2)); }"
+          fi
+
       - name: Build OpenTune macOS Universal DMG
         working-directory: desktop
         env:
@@ -63,17 +73,24 @@ jobs:
             desktop/dist/latest-mac.yml
           if-no-files-found: error
 
-      - name: Read package version
-        id: pkg_ver
+      - name: Determine release tag
+        id: release_tag
         working-directory: desktop
         run: |
-          VER=$(node -p "require('./package.json').version")
-          echo "tag=v$VER" >> $GITHUB_OUTPUT
+          if [ "${{ github.ref_type }}" = "tag" ] && [ -n "${{ github.ref_name }}" ]; then
+            TAG="${{ github.ref_name }}"
+          else
+            VER=$(node -p "require('./package.json').version")
+            TAG="v$VER"
+          fi
+          echo "Target GitHub release tag: $TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Attach macOS DMG to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.pkg_ver.outputs.tag }}
+          tag_name: ${{ steps.release_tag.outputs.tag }}
+          name: ${{ steps.release_tag.outputs.tag }}
           files: |
             desktop/dist/*.dmg
             desktop/dist/*.zip
