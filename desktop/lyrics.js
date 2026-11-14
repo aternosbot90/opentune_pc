@@ -25,16 +25,37 @@ function parseLrc(lrcText) {
   return result.sort((a, b) => a.time - b.time);
 }
 
+function sanitizeArtist(artistName) {
+  if (!artistName || typeof artistName !== 'string') return '';
+  return artistName
+    .replace(/\s*[-–—:]\s*topic\b/gi, '')
+    .replace(/\s*\(topic\)\s*/gi, '')
+    .replace(/\bTopic\b/gi, '')
+    .replace(/\s+official(?:\s+channel)?\b/gi, '')
+    .replace(/\s+records\b/gi, '')
+    .replace(/(?:Official|Music|VEVO)$/i, '')
+    .replace(/\s+(?:VEVO|Official|Music)\b/gi, '')
+    .replace(/,.*|&.*/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function sanitizeTrack(trackName) {
+  if (!trackName || typeof trackName !== 'string') return '';
+  return trackName
+    .replace(/\(.*?\)|\[.*?\]/gi, '')
+    .replace(/\s*[-–—]\s*(?:official\s*(?:video|audio|music\s*video)|lyrics?|visualizer|remaster(?:ed)?)\b/gi, '')
+    .replace(/\b(?:feat|ft)\b\.?.*$/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 async function getLyrics(trackName, artistName, durationSec) {
   try {
-    const cleanTrack = (trackName || '').replace(/\(.*?\)|\[.*?\]|feat\..*|ft\..*/gi, '').trim();
-    const cleanArtist = (artistName || '')
-      .replace(/\s*[-–—]\s*topic\b/gi, '')
-      .replace(/\s*\(topic\)\s*/gi, '')
-      .replace(/,.*|&.*/gi, '')
-      .trim();
+    const cleanTrack = sanitizeTrack(trackName) || (trackName || '').trim();
+    const cleanArtist = sanitizeArtist(artistName) || (artistName || '').trim();
 
-    // 1. Try exact get
+    // 1. Try exact get with sanitized track & artist
     const query = new URLSearchParams({
       track_name: cleanTrack,
       artist_name: cleanArtist
@@ -55,17 +76,40 @@ async function getLyrics(trackName, artistName, durationSec) {
       }
     }
 
-    // 2. Fallback search
+    // 2. Try search with clean track and clean artist
     const searchRes = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(cleanTrack + ' ' + cleanArtist)}`);
     if (searchRes.ok) {
       const items = await searchRes.json();
       if (Array.isArray(items) && items.length > 0) {
-        const item = items[0];
-        return {
-          synced: parseLrc(item.syncedLyrics),
-          plain: item.plainLyrics || (item.syncedLyrics ? item.syncedLyrics.replace(/\[\d{2}:\d{2}\.?\d*\]/g, '').trim() : ''),
-          source: 'LRCLIB'
-        };
+        // Prefer item with synced lyrics and closest duration if known
+        let bestItem = items.find(it => it.syncedLyrics && durationSec && Math.abs((it.duration || 0) - durationSec) <= 6);
+        if (!bestItem) bestItem = items.find(it => it.syncedLyrics) || items[0];
+
+        if (bestItem) {
+          return {
+            synced: parseLrc(bestItem.syncedLyrics),
+            plain: bestItem.plainLyrics || (bestItem.syncedLyrics ? bestItem.syncedLyrics.replace(/\[\d{2}:\d{2}\.?\d*\]/g, '').trim() : ''),
+            source: 'LRCLIB'
+          };
+        }
+      }
+    }
+
+    // 3. Fallback search with track title only if artist was complex
+    if (cleanTrack) {
+      const trackSearchRes = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(cleanTrack)}`);
+      if (trackSearchRes.ok) {
+        const items = await trackSearchRes.json();
+        if (Array.isArray(items) && items.length > 0) {
+          let bestItem = items.find(it => it.syncedLyrics && durationSec && Math.abs((it.duration || 0) - durationSec) <= 4);
+          if (bestItem) {
+            return {
+              synced: parseLrc(bestItem.syncedLyrics),
+              plain: bestItem.plainLyrics || (bestItem.syncedLyrics ? bestItem.syncedLyrics.replace(/\[\d{2}:\d{2}\.?\d*\]/g, '').trim() : ''),
+              source: 'LRCLIB'
+            };
+          }
+        }
       }
     }
   } catch (err) {

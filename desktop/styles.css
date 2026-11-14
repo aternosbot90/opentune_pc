@@ -2872,24 +2872,19 @@ body[data-slider-style="simple"] .progress-thumb {
   border: none;
   display: block;
   z-index: 1;
-  pointer-events: none; /* Strip native YouTube click overlays, title popups & links */
+  pointer-events: auto;
 }
 
 .np-video-click-overlay {
   position: absolute;
   inset: 0;
-  z-index: 3;
-  cursor: pointer;
+  z-index: 2;
+  pointer-events: none;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
-  transition: background 0.2s ease;
   user-select: none;
-}
-
-.np-video-click-overlay:hover {
-  background: rgba(0, 0, 0, 0.18);
 }
 
 .np-video-play-indicator {

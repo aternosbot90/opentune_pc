@@ -19,6 +19,10 @@ function cleanArtistName(raw) {
     .replace(/\s*[-–—:]\s*topic\b/gi, '')
     .replace(/\s*\(topic\)\s*/gi, '')
     .replace(/\bTopic\b/gi, '')
+    .replace(/\s+official(?:\s+channel)?\b/gi, '')
+    .replace(/\s+records\b/gi, '')
+    .replace(/(?:Official|Music|VEVO)$/i, '')
+    .replace(/\s+(?:VEVO|Official|Music)\b/gi, '')
     .replace(/\s*[-–—]\s*$/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
@@ -935,6 +939,43 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
   renderQueue();
   savePersistentQueue();
 
+  // Reset & immediately fetch lyrics in parallel (never leave previous song lyrics lingering)
+  state.currentLyrics = [];
+  state.activeLyricsIndex = -1;
+  state.rawLyricsText = '';
+  state.lyricsSource = null;
+  lyricDomCache.drawer = [];
+  lyricDomCache.np = [];
+  lyricDomCache.lastLineProgressDrawer = -1;
+  lyricDomCache.lastLineProgressNp = -1;
+
+  const lyricsLoadingHtml = '<div class="lyrics-loading"><div class="spinner"></div><p style="margin-top:12px;font-size:0.85rem;color:var(--text-muted);">Fetching synchronized lyrics...</p></div>';
+  lyricsView.innerHTML = lyricsLoadingHtml;
+  const npLyricsContent = document.getElementById('np-lyrics-content');
+  if (npLyricsContent) npLyricsContent.innerHTML = lyricsLoadingHtml;
+
+  fetchLyrics(track);
+
+  // If currently in Video mode, route playback to video frame and silence audio element
+  if (isVideoMode) {
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.src = '';
+    } catch (_) {}
+    videoCurrentTime = 0;
+    videoDuration = parseDurationToSeconds(track.duration) || 0;
+    state.isPlaying = true;
+    updatePlayPauseUI();
+    const videoFrame = document.getElementById('np-video-frame');
+    if (videoFrame) {
+      videoFrame.src = getVideoEmbedUrl(track.id, 0);
+    }
+    startVideoPlaybackTicker();
+    updateMediaSession(track);
+    return;
+  }
+
   // 1. Instant Playback for downloaded offline songs (0ms latency, works offline)
   let localFile = null;
   try {
@@ -992,7 +1033,6 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
     };
     startLocalPlayback();
 
-    fetchLyrics(track);
     updateMediaSession(track);
     updateNpDownloadButtonState(track.id, true);
     if (settings.trackNotifications && document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
@@ -1061,7 +1101,6 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
       };
       startOnlinePlayback();
 
-      fetchLyrics(track);
       updateMediaSession(track);
       if (settings.trackNotifications && document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         try {
@@ -1739,8 +1778,12 @@ function parseLrc(lrcText) {
 }
 
 // Lyrics Engine
+let lyricsRequestToken = 0;
+
 async function fetchLyrics(track) {
   if (!track || !track.id) return;
+  const token = ++lyricsRequestToken;
+  const targetTrackId = track.id;
 
   // Load saved timing offset
   const savedOffset = parseFloat(localStorage.getItem('opentune_lyrics_offset_' + track.id) || '0');
@@ -1749,6 +1792,7 @@ async function fetchLyrics(track) {
   // 1. Check for user-customized lyrics in localStorage
   const customLyrics = localStorage.getItem('opentune_custom_lyrics_' + track.id);
   if (customLyrics && customLyrics.trim().length > 0) {
+    if (token !== lyricsRequestToken || state.currentTrack?.id !== targetTrackId) return;
     state.rawLyricsText = customLyrics;
     state.lyricsSource = 'Custom / User Saved';
     const parsed = parseLrc(customLyrics);
@@ -1764,13 +1808,11 @@ async function fetchLyrics(track) {
   }
 
   // 2. Fetch from LRCLIB / Online
-  lyricsView.innerHTML = '<div class="lyrics-loading"><div class="spinner"></div><p style="margin-top:12px;font-size:0.85rem;color:var(--text-muted);">Fetching synchronized lyrics...</p></div>';
-  const npLyricsContent = document.getElementById('np-lyrics-content');
-  if (npLyricsContent) npLyricsContent.innerHTML = '<div class="lyrics-empty"><div class="spinner"></div><p style="margin-top:12px;">Searching synchronized lyrics...</p></div>';
-
   try {
     const durSec = parseDurationToSeconds(track.duration);
     const res = await window.api.getLyrics(track.title, track.artist, durSec);
+    if (token !== lyricsRequestToken || state.currentTrack?.id !== targetTrackId) return;
+
     const syncedLines = res.synced || res.lines || [];
 
     if (res.success && syncedLines.length > 0) {
@@ -1779,6 +1821,10 @@ async function fetchLyrics(track) {
       state.lyricsSource = 'LRCLIB (Synced)';
       state.activeLyricsIndex = -1;
       renderLyrics(syncedLines);
+      const current = isVideoMode ? (videoCurrentTime || 0) : (audio.currentTime || 0);
+      if (current > 0) {
+        updateSyncedLyrics(current);
+      }
     } else if (res.success && res.plain && res.plain.trim().length > 0) {
       state.currentLyrics = [];
       state.rawLyricsText = res.plain.trim();
@@ -1791,6 +1837,7 @@ async function fetchLyrics(track) {
       renderEmptyLyrics(track);
     }
   } catch (err) {
+    if (token !== lyricsRequestToken || state.currentTrack?.id !== targetTrackId) return;
     renderEmptyLyrics(track);
   }
 }
@@ -5648,7 +5695,7 @@ let lastVideoFramePingTs = 0;
 
 function getVideoEmbedUrl(videoId, startTime = 0) {
   const start = Math.max(0, Math.floor(startTime));
-  return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&start=${start}&controls=0&disablekb=1&modestbranding=1&fs=0&iv_load_policy=3&playsinline=1&enablejsapi=1&origin=https://music.youtube.com&widget_referrer=https://music.youtube.com`;
+  return `https://www.youtube.com/embed/${videoId}?autoplay=1&start=${start}&enablejsapi=1&origin=https://www.youtube.com&widget_referrer=https://www.youtube.com&rel=0`;
 }
 
 function sendVideoCommand(func, args = []) {
@@ -5840,7 +5887,10 @@ function setSongVideoMode(mode) {
     if (videoCont) videoCont.style.display = 'flex';
 
     const curTime = Math.max(0, Math.floor(audio.currentTime || 0));
-    try { audio.pause(); } catch (_) {}
+    try {
+      audio.pause();
+      audio.src = '';
+    } catch (_) {}
     videoCurrentTime = curTime;
     videoDuration = parseDurationToSeconds(state.currentTrack.duration) || 0;
     state.isPlaying = true;
@@ -5867,11 +5917,10 @@ function setSongVideoMode(mode) {
       videoFrame.src = '';
     }
     if (state.currentTrack) {
-      audio.currentTime = resumeTime;
-      audio.play().then(() => {
-        state.isPlaying = true;
-        updatePlayPauseUI();
-      }).catch(err => console.warn('Audio play notice:', err));
+      playTrack(state.currentTrack, null, state.queueIndex, {
+        startTime: resumeTime,
+        preserveShuffleForward: true
+      });
     }
     showToast('Switched to Song mode 🎵');
   }
