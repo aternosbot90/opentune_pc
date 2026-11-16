@@ -1,7 +1,7 @@
 {
   "name": "opentune-desktop",
   "productName": "OpenTune",
-  "version": "3.1.1",
+  "version": "3.1.2",
   "description": "OpenTune Desktop Music Client",
   "main": "main.js",
   "author": "Arturo254",
@@ -15,8 +15,10 @@
     "build:mac": "node scripts/bundle-mac-bin.js && electron-builder --mac dmg zip --universal --publish never",
     "build:mac-arm64": "node scripts/bundle-mac-bin.js && electron-builder --mac dmg zip --arm64 --publish never",
     "build:mac-x64": "node scripts/bundle-mac-bin.js && electron-builder --mac dmg zip --x64 --publish never",
+    "build:linux": "node scripts/bundle-linux-bin.js && electron-builder --linux AppImage deb tar.gz --x64 --publish never",
     "publish:win": "node scripts/publish-runner.js win",
-    "publish:mac": "node scripts/publish-runner.js mac"
+    "publish:mac": "node scripts/publish-runner.js mac",
+    "publish:linux": "node scripts/publish-runner.js linux"
   },
   "build": {
     "appId": "com.arturo254.opentune.desktop",
@@ -95,6 +97,32 @@
           "path": "/Applications"
         }
       ]
+    },
+    "linux": {
+      "category": "Audio;Music;Player;",
+      "icon": "assets/icon.png",
+      "maintainer": "Arturo254",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "OpenTune-${version}-linux-${arch}.${ext}"
     },
     "extraResources": [
       {

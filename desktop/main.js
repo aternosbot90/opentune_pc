@@ -961,6 +961,39 @@ function findExistingImageFile(dir, baseName, videoId) {
       }
     }
   }
+  // Search immediate subdirectories (e.g. downloaded playlists)
+  if (dir && fs.existsSync(dir)) {
+    try {
+      const subEntries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const ent of subEntries) {
+        if (ent.isDirectory() && !ent.name.startsWith('.')) {
+          const subDir = path.join(dir, ent.name);
+          if (baseName) {
+            for (const ext of exts) {
+              const p = path.join(subDir, `${baseName}${ext}`);
+              if (fs.existsSync(p) && fs.statSync(p).size > 256) {
+                return `file:///${p.replace(/\\/g, '/')}`;
+              }
+            }
+          }
+          if (videoId) {
+            for (const ext of exts) {
+              const p = path.join(subDir, `${videoId}${ext}`);
+              if (fs.existsSync(p) && fs.statSync(p).size > 256) {
+                return `file:///${p.replace(/\\/g, '/')}`;
+              }
+            }
+          }
+          for (const ext of exts) {
+            const pl = path.join(subDir, `cover${ext}`);
+            if (fs.existsSync(pl) && fs.statSync(pl).size > 256) {
+              return `file:///${pl.replace(/\\/g, '/')}`;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
   return null;
 }
 
@@ -984,6 +1017,34 @@ function findExistingLyrics(dir, baseName, videoId) {
       } catch (_) {}
     }
   }
+  if (dir && fs.existsSync(dir)) {
+    try {
+      const subEntries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const ent of subEntries) {
+        if (ent.isDirectory() && !ent.name.startsWith('.')) {
+          const subDir = path.join(dir, ent.name);
+          if (baseName) {
+            const p = path.join(subDir, `${baseName}.lrc`);
+            if (fs.existsSync(p)) {
+              try {
+                const content = fs.readFileSync(p, 'utf8');
+                return { lrcPath: p, content, parsed: lyricsService.parseLrc(content) };
+              } catch (_) {}
+            }
+          }
+          if (videoId) {
+            const p = path.join(subDir, `${videoId}.lrc`);
+            if (fs.existsSync(p)) {
+              try {
+                const content = fs.readFileSync(p, 'utf8');
+                return { lrcPath: p, content, parsed: lyricsService.parseLrc(content) };
+              } catch (_) {}
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
   return null;
 }
 
@@ -1000,6 +1061,28 @@ function findExistingMetadata(dir, baseName, videoId) {
     if (fs.existsSync(p)) {
       try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (_) {}
     }
+  }
+  if (dir && fs.existsSync(dir)) {
+    try {
+      const subEntries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const ent of subEntries) {
+        if (ent.isDirectory() && !ent.name.startsWith('.')) {
+          const subDir = path.join(dir, ent.name);
+          if (baseName) {
+            const p = path.join(subDir, `${baseName}.info.json`);
+            if (fs.existsSync(p)) {
+              try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (_) {}
+            }
+          }
+          if (videoId) {
+            const p = path.join(subDir, `${videoId}.json`);
+            if (fs.existsSync(p)) {
+              try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (_) {}
+            }
+          }
+        }
+      }
+    } catch (_) {}
   }
   return null;
 }
@@ -1031,26 +1114,30 @@ async function downloadAndCacheThumbnail(track, destDir, baseName, isPlaylist = 
   }
 
   const rawThumb = track?.thumbnail || '';
-  if (!rawThumb || typeof rawThumb !== 'string') return '';
   const highResUrl = upgradeCoverUrl(rawThumb, 800);
-  if (!highResUrl.startsWith('http://') && !highResUrl.startsWith('https://')) return '';
+  const candidateUrls = [
+    (highResUrl && (highResUrl.startsWith('http://') || highResUrl.startsWith('https://'))) ? highResUrl : null,
+    (rawThumb && (rawThumb.startsWith('http://') || rawThumb.startsWith('https://'))) ? rawThumb : null,
+    trackId ? `https://i.ytimg.com/vi/${trackId}/hqdefault.jpg` : null,
+    trackId ? `https://i.ytimg.com/vi/${trackId}/mqdefault.jpg` : null
+  ].filter(Boolean);
 
-  try {
-    const res = await fetchWithTimeout(highResUrl, { headers: DOWNLOAD_HTTP_HEADERS }, 12000);
-    if (res.ok) {
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length > 512) {
-        if (destJpg) fs.writeFileSync(destJpg, buf);
-        if (userThumbJpg) fs.writeFileSync(userThumbJpg, buf);
-        if (isPlaylist && destDir) {
-          const plCover = path.join(destDir, 'cover.jpg');
-          if (!fs.existsSync(plCover)) fs.writeFileSync(plCover, buf);
+  for (const url of candidateUrls) {
+    try {
+      const res = await fetchWithTimeout(url, { headers: DOWNLOAD_HTTP_HEADERS }, 10000);
+      if (res.ok) {
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length > 512) {
+          if (destJpg) fs.writeFileSync(destJpg, buf);
+          if (userThumbJpg) fs.writeFileSync(userThumbJpg, buf);
+          if (isPlaylist && destDir) {
+            const plCover = path.join(destDir, 'cover.jpg');
+            if (!fs.existsSync(plCover)) fs.writeFileSync(plCover, buf);
+          }
+          return destJpg ? `file:///${destJpg.replace(/\\/g, '/')}` : `file:///${userThumbJpg.replace(/\\/g, '/')}`;
         }
-        return destJpg ? `file:///${destJpg.replace(/\\/g, '/')}` : `file:///${userThumbJpg.replace(/\\/g, '/')}`;
       }
-    }
-  } catch (err) {
-    console.warn(`[OpenTune] Thumbnail caching notice for "${track?.title}":`, err.message);
+    } catch (_) {}
   }
   return '';
 }

@@ -312,7 +312,7 @@ body.light-theme.liquid-glass .modal-card {
 }
 
 /* Disable Blur Effects */
-body.no-blur {
+body.no-blur:not(.light-theme) {
   --frosted-blur: none !important;
   --bg-sidebar: #111218 !important;
   --bg-player: #13141b !important;
@@ -320,6 +320,15 @@ body.no-blur {
   --bg-surface-elevated: #242734 !important;
   --bg-dropdown: #1c1e28 !important;
   --bg-dropdown-solid: #1c1e28 !important;
+}
+body.light-theme.no-blur {
+  --frosted-blur: none !important;
+  --bg-sidebar: #ffffff !important;
+  --bg-player: #ffffff !important;
+  --bg-surface: #ffffff !important;
+  --bg-surface-elevated: #e7eaf3 !important;
+  --bg-dropdown: #ffffff !important;
+  --bg-dropdown-solid: #ffffff !important;
 }
 body.no-blur *,
 body.no-blur *::before,

@@ -629,19 +629,68 @@ function appendUntypedSearchBuckets(results, buckets) {
 }
 
 // Search with complete category filters (Songs, Albums, Artists, Playlists, All)
+// Fully supports creator handles (@username), direct channel IDs (UC...), and playlist URLs/IDs
 async function search(query, filter = 'song') {
   return executeMusicAction(async (yt, isGuest = false) => {
+    const rawQuery = (query || '').trim();
+    const isHandle = rawQuery.startsWith('@');
+    const cleanHandle = isHandle ? rawQuery.replace(/^@+/, '').trim() : rawQuery;
+    const isChannelId = /^UC[a-zA-Z0-9_-]{20,}$/.test(rawQuery);
+    const playlistUrlMatch = rawQuery.match(/[?&]list=([a-zA-Z0-9_-]+)/) || rawQuery.match(/^(?:VL)?(PL|RDCLAK|OLAK)[a-zA-Z0-9_-]+/);
+    const directPlaylistId = playlistUrlMatch
+      ? (playlistUrlMatch[1] ? (playlistUrlMatch[0].startsWith('http') ? playlistUrlMatch[1] : playlistUrlMatch[0]) : playlistUrlMatch[0])
+      : null;
+
     if (filter === 'all') {
-      const [songsRes, albumsRes, artistsRes, playlistsRes] = await Promise.allSettled([
-        yt.music.search(query, { type: 'song' }),
-        yt.music.search(query, { type: 'album' }),
-        yt.music.search(query, { type: 'artist' }),
-        yt.music.search(query, { type: 'playlist' })
+      // If direct playlist ID was searched, resolve directly first
+      let resolvedDirectPlaylist = null;
+      if (directPlaylistId) {
+        try {
+          const directPl = await getPlaylist(directPlaylistId);
+          if (directPl && directPl.id) {
+            resolvedDirectPlaylist = {
+              id: directPl.id,
+              title: directPl.title || 'Playlist',
+              author: directPl.author || 'YouTube Music',
+              itemCount: `${directPl.tracks?.length || 0} tracks`,
+              thumbnail: directPl.thumbnail || 'assets/icon.png',
+              itemType: 'playlist'
+            };
+          }
+        } catch (_) {}
+      }
+
+      // If direct channel ID was searched, resolve directly first
+      let resolvedDirectArtist = null;
+      if (isChannelId) {
+        try {
+          const directArt = await getArtist(rawQuery);
+          if (directArt && directArt.id) {
+            resolvedDirectArtist = {
+              id: directArt.id,
+              name: directArt.name || 'Artist',
+              subscribers: directArt.subscribers || '',
+              thumbnail: directArt.thumbnail || 'assets/icon.png',
+              itemType: 'artist'
+            };
+          }
+        } catch (_) {}
+      }
+
+      const searchQuery = isHandle ? cleanHandle : rawQuery;
+
+      const [songsRes, albumsRes, artistsRes, playlistsRes, handleArtistsRes, handlePlaylistsRes] = await Promise.allSettled([
+        yt.music.search(searchQuery, { type: 'song' }),
+        yt.music.search(searchQuery, { type: 'album' }),
+        yt.music.search(searchQuery, { type: 'artist' }),
+        yt.music.search(searchQuery, { type: 'playlist' }),
+        isHandle ? yt.music.search(rawQuery, { type: 'artist' }) : Promise.resolve(null),
+        isHandle ? yt.music.search(rawQuery, { type: 'playlist' }) : Promise.resolve(null)
       ]);
 
       const settled = [songsRes, albumsRes, artistsRes, playlistsRes];
       const allRejected = settled.every(r => r.status === 'rejected');
-      if (allRejected) {
+      if (allRejected && !resolvedDirectPlaylist && !resolvedDirectArtist) {
         const firstErr = settled[0].reason || new Error('Search requests failed');
         if (!isGuest) firstErr.isFallbackToGuest = true;
         throw firstErr;
@@ -649,7 +698,14 @@ async function search(query, filter = 'song') {
 
       const buckets = { songs: [], albums: [], artists: [], playlists: [] };
 
-      if (songsRes.status === 'fulfilled') {
+      if (resolvedDirectPlaylist) {
+        buckets.playlists.push(resolvedDirectPlaylist);
+      }
+      if (resolvedDirectArtist) {
+        buckets.artists.push(resolvedDirectArtist);
+      }
+
+      if (songsRes.status === 'fulfilled' && songsRes.value) {
         const rawSongs = songsRes.value.songs?.contents || songsRes.value.contents || songsRes.value.results || [];
         for (const s of rawSongs) {
           const item = formatSongItem(s);
@@ -657,7 +713,7 @@ async function search(query, filter = 'song') {
         }
       }
 
-      if (albumsRes.status === 'fulfilled') {
+      if (albumsRes.status === 'fulfilled' && albumsRes.value) {
         const rawAlbums = albumsRes.value.albums?.contents || albumsRes.value.contents || albumsRes.value.results || [];
         for (const a of rawAlbums) {
           const item = formatAlbumItem(a);
@@ -665,20 +721,41 @@ async function search(query, filter = 'song') {
         }
       }
 
-      if (artistsRes.status === 'fulfilled') {
-        const rawArtists = artistsRes.value.artists?.contents || artistsRes.value.contents || artistsRes.value.results || [];
-        for (const ar of rawArtists) {
-          const item = formatArtistItem(ar);
-          if (item && !buckets.artists.some(x => x.id === item.id)) buckets.artists.push(item);
+      // Merge artist results from both clean handle and raw @handle query
+      const rawArtistsList = [];
+      if (handleArtistsRes.status === 'fulfilled' && handleArtistsRes.value) {
+        rawArtistsList.push(...(handleArtistsRes.value.artists?.contents || handleArtistsRes.value.contents || handleArtistsRes.value.results || []));
+      }
+      if (artistsRes.status === 'fulfilled' && artistsRes.value) {
+        rawArtistsList.push(...(artistsRes.value.artists?.contents || artistsRes.value.contents || artistsRes.value.results || []));
+      }
+      for (const ar of rawArtistsList) {
+        const item = formatArtistItem(ar);
+        if (item && !buckets.artists.some(x => x.id === item.id)) {
+          // If artist name matches the handle closely, place at the top of results
+          const isExactHandleMatch = isHandle && (
+            item.name.toLowerCase() === cleanHandle.toLowerCase() ||
+            item.name.toLowerCase().replace(/\s+/g, '') === cleanHandle.toLowerCase()
+          );
+          if (isExactHandleMatch) {
+            buckets.artists.unshift(item);
+          } else {
+            buckets.artists.push(item);
+          }
         }
       }
 
-      if (playlistsRes.status === 'fulfilled') {
-        const rawPlaylists = playlistsRes.value.playlists?.contents || playlistsRes.value.contents || playlistsRes.value.results || [];
-        for (const p of rawPlaylists) {
-          const item = formatPlaylistItem(p);
-          if (item && !buckets.playlists.some(x => x.id === item.id)) buckets.playlists.push(item);
-        }
+      // Merge playlist results
+      const rawPlaylistsList = [];
+      if (handlePlaylistsRes.status === 'fulfilled' && handlePlaylistsRes.value) {
+        rawPlaylistsList.push(...(handlePlaylistsRes.value.playlists?.contents || handlePlaylistsRes.value.contents || handlePlaylistsRes.value.results || []));
+      }
+      if (playlistsRes.status === 'fulfilled' && playlistsRes.value) {
+        rawPlaylistsList.push(...(playlistsRes.value.playlists?.contents || playlistsRes.value.contents || playlistsRes.value.results || []));
+      }
+      for (const p of rawPlaylistsList) {
+        const item = formatPlaylistItem(p);
+        if (item && !buckets.playlists.some(x => x.id === item.id)) buckets.playlists.push(item);
       }
 
       const anyRejected = settled.some(r => r.status === 'rejected');
@@ -687,7 +764,7 @@ async function search(query, filter = 'song') {
       // Resilient backup: untyped YTMusic search if typed queries yielded 0 in any bucket
       if (totalCount === 0 || (buckets.songs.length === 0 && buckets.artists.length === 0)) {
         try {
-          const untyped = await yt.music.search(query);
+          const untyped = await yt.music.search(searchQuery);
           appendUntypedSearchBuckets(untyped, buckets);
         } catch {}
       }
@@ -710,7 +787,7 @@ async function search(query, filter = 'song') {
 
     try {
       if (filter === 'album') {
-        const results = await yt.music.search(query, { type: 'album' });
+        const results = await yt.music.search(isHandle ? cleanHandle : rawQuery, { type: 'album' });
         const raw = results.albums?.contents || results.contents || results.results || [];
         const items = raw.map(formatAlbumItem).filter(Boolean);
         if (!isGuest && items.length === 0) {
@@ -720,9 +797,38 @@ async function search(query, filter = 'song') {
       }
 
       if (filter === 'artist') {
-        const results = await yt.music.search(query, { type: 'artist' });
-        const raw = results.artists?.contents || results.contents || results.results || [];
-        const items = raw.map(formatArtistItem).filter(Boolean);
+        // Direct channel ID lookup
+        if (isChannelId) {
+          try {
+            const direct = await getArtist(rawQuery);
+            if (direct && direct.id) {
+              return [{
+                id: direct.id,
+                name: direct.name,
+                subscribers: direct.subscribers || '',
+                thumbnail: direct.thumbnail
+              }];
+            }
+          } catch (_) {}
+        }
+
+        const [r1, r2] = await Promise.allSettled([
+          yt.music.search(isHandle ? cleanHandle : rawQuery, { type: 'artist' }),
+          isHandle ? yt.music.search(rawQuery, { type: 'artist' }) : Promise.resolve(null)
+        ]);
+
+        const items = [];
+        const combined = [];
+        if (r2.status === 'fulfilled' && r2.value) {
+          combined.push(...(r2.value.artists?.contents || r2.value.contents || []));
+        }
+        if (r1.status === 'fulfilled' && r1.value) {
+          combined.push(...(r1.value.artists?.contents || r1.value.contents || []));
+        }
+        for (const ar of combined) {
+          const item = formatArtistItem(ar);
+          if (item && !items.some(x => x.id === item.id)) items.push(item);
+        }
         if (!isGuest && items.length === 0) {
           throw Object.assign(new Error('Empty artist search; retrying as guest'), { isFallbackToGuest: true });
         }
@@ -730,9 +836,39 @@ async function search(query, filter = 'song') {
       }
 
       if (filter === 'playlist') {
-        const results = await yt.music.search(query, { type: 'playlist' });
-        const raw = results.playlists?.contents || results.contents || results.results || [];
-        const items = raw.map(formatPlaylistItem).filter(Boolean);
+        // Direct playlist URL or ID lookup
+        if (directPlaylistId) {
+          try {
+            const pl = await getPlaylist(directPlaylistId);
+            if (pl && pl.id) {
+              return [{
+                id: pl.id,
+                title: pl.title || 'Playlist',
+                author: pl.author || 'YouTube Music',
+                itemCount: `${pl.tracks?.length || 0} tracks`,
+                thumbnail: pl.thumbnail || 'assets/icon.png'
+              }];
+            }
+          } catch (_) {}
+        }
+
+        const [r1, r2] = await Promise.allSettled([
+          yt.music.search(isHandle ? cleanHandle : rawQuery, { type: 'playlist' }),
+          isHandle ? yt.music.search(rawQuery, { type: 'playlist' }) : Promise.resolve(null)
+        ]);
+
+        const items = [];
+        const combined = [];
+        if (r2.status === 'fulfilled' && r2.value) {
+          combined.push(...(r2.value.playlists?.contents || r2.value.contents || []));
+        }
+        if (r1.status === 'fulfilled' && r1.value) {
+          combined.push(...(r1.value.playlists?.contents || r1.value.contents || []));
+        }
+        for (const p of combined) {
+          const item = formatPlaylistItem(p);
+          if (item && !items.some(x => x.id === item.id)) items.push(item);
+        }
         if (!isGuest && items.length === 0) {
           throw Object.assign(new Error('Empty playlist search; retrying as guest'), { isFallbackToGuest: true });
         }
@@ -744,7 +880,7 @@ async function search(query, filter = 'song') {
       if (filter === 'video') searchOpts.type = 'video';
       else searchOpts.type = 'song';
 
-      const results = await yt.music.search(query, searchOpts);
+      const results = await yt.music.search(isHandle ? cleanHandle : rawQuery, searchOpts);
       const items = [];
       const rawList = results.songs?.contents || results.contents || results.results || [];
       for (const item of rawList) {
@@ -1475,13 +1611,89 @@ async function getHomeFeed() {
       const items = [];
       const rawItems = sec.contents || sec.items || [];
       for (const item of rawItems) {
-        const song = formatSongItem(item);
-        if (song) items.push(song);
+        if (!item) continue;
+        const pageType = item.endpoint?.payload?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType || '';
+        const browseId = item.endpoint?.payload?.browseId || item.id || '';
+
+        if (pageType.includes('PLAYLIST') || browseId.startsWith('VL') || browseId.startsWith('PL')) {
+          const pl = formatPlaylistItem(item);
+          if (pl) {
+            pl.itemType = 'playlist';
+            items.push(pl);
+          }
+        } else if (pageType.includes('ARTIST') || browseId.startsWith('UC')) {
+          const ar = formatArtistItem(item);
+          if (ar) {
+            ar.itemType = 'artist';
+            items.push(ar);
+          }
+        } else if (pageType.includes('ALBUM') || browseId.startsWith('MPRE')) {
+          const alb = formatAlbumItem(item);
+          if (alb) {
+            alb.itemType = 'album';
+            items.push(alb);
+          }
+        } else {
+          const song = formatSongItem(item);
+          if (song && song.id) {
+            song.itemType = 'song';
+            items.push(song);
+          } else {
+            // Check if generic item is playlist or artist
+            const maybePl = formatPlaylistItem(item);
+            if (maybePl && maybePl.id) {
+              maybePl.itemType = 'playlist';
+              items.push(maybePl);
+            }
+          }
+        }
       }
 
       if (items.length > 0) {
-        sections.push({ title, items });
+        const isPl = items.every(x => x.itemType === 'playlist') || /playlist|community/i.test(title);
+        const isAr = items.every(x => x.itemType === 'artist') || /artist/i.test(title);
+        const isAlb = items.every(x => x.itemType === 'album') || /album/i.test(title);
+        const sectionType = isPl ? 'playlist' : (isAr ? 'artist' : (isAlb ? 'album' : 'song'));
+        sections.push({ title, items, sectionType });
       }
+    }
+
+    // Ensure "From the Community" community playlists section exists
+    const hasCommunity = sections.some(s => /community|playlists/i.test(s.title));
+    if (!hasCommunity) {
+      try {
+        const commPls = await executeMusicAction(async (yt) => {
+          const res = await yt.music.search('Trending Community Playlists', { type: 'playlist' });
+          const raw = res.playlists?.contents || res.contents || [];
+          return raw.map(formatPlaylistItem).filter(Boolean);
+        });
+        if (commPls && commPls.length > 0) {
+          sections.push({
+            title: 'From the Community',
+            sectionType: 'playlist',
+            items: commPls.slice(0, 10).map(p => ({ ...p, itemType: 'playlist' }))
+          });
+        }
+      } catch (_) {}
+    }
+
+    // Ensure "Recommended Artists" / Subscribed Artists section exists
+    const hasArtists = sections.some(s => /artist/i.test(s.title));
+    if (!hasArtists) {
+      try {
+        const topArtists = await executeMusicAction(async (yt) => {
+          const res = await yt.music.search('Top Trending Global Artists', { type: 'artist' });
+          const raw = res.artists?.contents || res.contents || [];
+          return raw.map(formatArtistItem).filter(Boolean);
+        });
+        if (topArtists && topArtists.length > 0) {
+          sections.push({
+            title: 'Recommended Artists',
+            sectionType: 'artist',
+            items: topArtists.slice(0, 10).map(a => ({ ...a, itemType: 'artist' }))
+          });
+        }
+      } catch (_) {}
     }
 
     if (sections.length > 0) {
@@ -1492,14 +1704,18 @@ async function getHomeFeed() {
   }
 
   // Guaranteed fallback so Home is NEVER blank or spinning
-  const [trending, chill] = await Promise.all([
+  const [trending, chill, commPls, topArtists] = await Promise.all([
     search('Top Trending Global Hits 2026', 'song').catch(() => []),
-    search('Chill Acoustic Hits', 'song').catch(() => [])
+    search('Chill Acoustic Hits', 'song').catch(() => []),
+    search('Community Playlists 2026', 'playlist').catch(() => []),
+    search('Top Global Artists', 'artist').catch(() => [])
   ]);
 
   return [
-    { title: 'Quick Picks', items: (trending.length > 0 ? trending : []).slice(0, 20) },
-    { title: 'Trending Hits', items: (chill.length > 0 ? chill : trending).slice(0, 15) }
+    { title: 'Quick Picks', sectionType: 'song', items: (trending.length > 0 ? trending : []).slice(0, 20).map(s => ({ ...s, itemType: 'song' })) },
+    { title: 'Trending Hits', sectionType: 'song', items: (chill.length > 0 ? chill : trending).slice(0, 15).map(s => ({ ...s, itemType: 'song' })) },
+    { title: 'From the Community', sectionType: 'playlist', items: (commPls.length > 0 ? commPls : []).slice(0, 10).map(p => ({ ...p, itemType: 'playlist' })) },
+    { title: 'Recommended Artists', sectionType: 'artist', items: (topArtists.length > 0 ? topArtists : []).slice(0, 10).map(a => ({ ...a, itemType: 'artist' })) }
   ];
 }
 

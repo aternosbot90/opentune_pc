@@ -940,7 +940,7 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
   extractAlbumColors(track.thumbnail);
 
   // Highlight active track rows across current view
-  document.querySelectorAll('.track-row').forEach(r => r.classList.remove('active'));
+  document.querySelectorAll('.track-row').forEach(r => r.classList.toggle('active', r.dataset.trackId === track.id));
 
   // Reset progress UI
   progressFill.style.width = '0%';
@@ -1000,7 +1000,7 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
     localFile = await window.api.checkLocalTrackFile(track, settings.downloadPath);
   } catch (_) {}
 
-  if (requestToken !== state.playRequestToken) return;
+  if (requestToken !== state.playRequestToken || isVideoMode) return;
 
   if (localFile && localFile.exists && localFile.fileUrl) {
     if (localFile.thumbnailUrl) {
@@ -1039,14 +1039,14 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
     }
 
     const startLocalPlayback = () => {
-      if (requestToken !== state.playRequestToken) return;
+      if (requestToken !== state.playRequestToken || isVideoMode) return;
       if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
         eqAudioCtx.resume().catch(() => {});
       }
       const p = audio.play();
       if (p !== undefined) {
         p.then(() => {
-          if (requestToken !== state.playRequestToken) return;
+          if (requestToken !== state.playRequestToken || isVideoMode) return;
           state.isPlaying = true;
           updatePlayPauseUI();
           preloadAdjacentTracks();
@@ -1055,12 +1055,12 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
           const onReady = () => {
             audio.removeEventListener('canplay', onReady);
             audio.removeEventListener('loadeddata', onReady);
-            if (requestToken !== state.playRequestToken) return;
+            if (requestToken !== state.playRequestToken || isVideoMode) return;
             if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
               eqAudioCtx.resume().catch(() => {});
             }
             audio.play().then(() => {
-              if (requestToken !== state.playRequestToken) return;
+              if (requestToken !== state.playRequestToken || isVideoMode) return;
               state.isPlaying = true;
               updatePlayPauseUI();
               preloadAdjacentTracks();
@@ -1090,7 +1090,7 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
   // 2. Fetch direct online audio stream URL
   try {
     const res = await window.api.getStreamUrl(track.id);
-    if (requestToken !== state.playRequestToken) return; // User already switched songs!
+    if (requestToken !== state.playRequestToken || isVideoMode) return; // User already switched songs!
 
     if (res.success && res.url) {
       if (typeof ensureEqualizerReady === 'function') ensureEqualizerReady();
@@ -1107,14 +1107,14 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
       }
 
       const startOnlinePlayback = () => {
-        if (requestToken !== state.playRequestToken) return;
+        if (requestToken !== state.playRequestToken || isVideoMode) return;
         if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
           eqAudioCtx.resume().catch(() => {});
         }
         const p = audio.play();
         if (p !== undefined) {
           p.then(() => {
-            if (requestToken !== state.playRequestToken) return;
+            if (requestToken !== state.playRequestToken || isVideoMode) return;
             state.isPlaying = true;
             updatePlayPauseUI();
             preloadAdjacentTracks();
@@ -1123,12 +1123,12 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
             const onReady = () => {
               audio.removeEventListener('canplay', onReady);
               audio.removeEventListener('loadeddata', onReady);
-              if (requestToken !== state.playRequestToken) return;
+              if (requestToken !== state.playRequestToken || isVideoMode) return;
               if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
                 eqAudioCtx.resume().catch(() => {});
               }
               audio.play().then(() => {
-                if (requestToken !== state.playRequestToken) return;
+                if (requestToken !== state.playRequestToken || isVideoMode) return;
                 state.isPlaying = true;
                 updatePlayPauseUI();
                 preloadAdjacentTracks();
@@ -1158,7 +1158,7 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
       showToast(`Could not load audio for "${track.title}"`, 'error');
     }
   } catch (err) {
-    if (requestToken !== state.playRequestToken) return;
+    if (requestToken !== state.playRequestToken || isVideoMode) return;
     console.error('Playback start error:', err);
     state.isPlaying = false;
     updatePlayPauseUI();
@@ -1290,7 +1290,7 @@ btnNext.addEventListener('click', () => {
     playTrack(state.queue[nextIdx], null, nextIdx);
   } else if (state.repeatMode === 'all') {
     playTrack(state.queue[0], null, 0);
-  } else if (settings.autoplayRadio && state.currentTrack) {
+  } else if (settings.autoplayRadio !== false && state.currentTrack) {
     // Autoplay Radio (fetches similar songs when end of queue reached)
     window.api.getUpNext(state.currentTrack.id).then(items => {
       if (items && items.length > 0) {
@@ -1299,8 +1299,14 @@ btnNext.addEventListener('click', () => {
         renderQueue();
         savePersistentQueue();
         playTrack(items[0], null, startIdx);
+      } else if (state.queue.length > 0) {
+        playTrack(state.queue[0], null, 0);
       }
+    }).catch(() => {
+      if (state.queue.length > 0) playTrack(state.queue[0], null, 0);
     });
+  } else if (state.queue.length > 0) {
+    playTrack(state.queue[0], null, 0);
   }
 });
 
@@ -4054,6 +4060,7 @@ document.getElementById('btn-back-from-artist')?.addEventListener('click', () =>
 // Track Row Component with Clickable Artist & Album Links, Like, and Viewport-Safe Context Menu
 function createTrackRow(track, number, playlistQueue) {
   const tr = document.createElement('tr');
+  tr.dataset.trackId = track.id;
   tr.className = `track-row ${state.currentTrack?.id === track.id ? 'active' : ''}`;
   const isLiked = state.likedSongs.has(track.id);
   const isDownloaded = typeof sessionDownloadedIds !== 'undefined' && sessionDownloadedIds.has(track.id);
@@ -4522,7 +4529,7 @@ async function loadHomeFeed() {
         });
       }
 
-      // Render all additional personalized sections (Mixed for you, Forgotten favorites, Similar to...)
+      // Render all additional personalized sections (Community playlists, Subscribed/Recommended artists, Mixed for you, etc.)
       if (extraSections && feed.length > 2) {
         feed.slice(2).forEach(sec => {
           if (!sec || !sec.items || sec.items.length === 0) return;
@@ -4535,8 +4542,16 @@ async function loadHomeFeed() {
             <div class="cards-grid"></div>
           `;
           const grid = wrap.querySelector('.cards-grid');
-          sec.items.forEach(track => {
-            grid.appendChild(createTrackCard(track, sec.items));
+          sec.items.forEach(item => {
+            if (sec.sectionType === 'playlist' || item.itemType === 'playlist') {
+              grid.appendChild(createPlaylistCard(item));
+            } else if (sec.sectionType === 'artist' || item.itemType === 'artist') {
+              grid.appendChild(createArtistCard(item));
+            } else if (sec.sectionType === 'album' || item.itemType === 'album') {
+              grid.appendChild(createAlbumCard(item));
+            } else {
+              grid.appendChild(createTrackCard(item, sec.items));
+            }
           });
           extraSections.appendChild(wrap);
         });
@@ -4628,6 +4643,7 @@ function loadHistory() {
 
   history.forEach((track, idx) => {
     const tr = document.createElement('tr');
+    tr.dataset.trackId = track.id;
     tr.className = `track-row ${state.currentTrack?.id === track.id ? 'active' : ''}`;
     const timeAgo = formatTimeAgo(track.timestamp);
     const isLiked = state.likedSongs.has(track.id);
@@ -4728,6 +4744,7 @@ function loadStats() {
 
   songsArray.forEach((track, idx) => {
     const tr = document.createElement('tr');
+    tr.dataset.trackId = track.id;
     tr.className = `track-row ${state.currentTrack?.id === track.id ? 'active' : ''}`;
     const isLiked = state.likedSongs.has(track.id);
 
@@ -5402,13 +5419,17 @@ function openPlaylistDetail(playlist, isLocal = false, skipBackgroundSync = fals
 
   const thumbEl = document.getElementById('detail-playlist-thumb');
   if (thumbEl) {
+    const defaultSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24"><rect width="24" height="24" fill="%23222530" rx="4"/><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" fill="%23ED5564"/></svg>`;
     let coverSrc = playlist.thumbnail;
     if (playlist.id === 'downloaded-offline' && Array.isArray(playlist.tracks)) {
       const withLocal = playlist.tracks.find(t => t?.localThumbnail);
       if (withLocal?.localThumbnail) coverSrc = withLocal.localThumbnail;
     }
-    thumbEl.src = upgradeCover(coverSrc || 'assets/icon.png', 800);
-    thumbEl.onerror = function() { this.src = 'assets/icon.png'; };
+    thumbEl.onerror = function() {
+      this.onerror = null;
+      this.src = defaultSvg;
+    };
+    thumbEl.src = coverSrc ? upgradeCover(coverSrc, 800) : defaultSvg;
   }
 
   const importBtn = document.getElementById('detail-playlist-import-btn');
@@ -5751,7 +5772,7 @@ let lastVideoFramePingTs = 0;
 
 function getVideoEmbedUrl(videoId, startTime = 0) {
   const start = Math.max(0, Math.floor(startTime));
-  return `https://www.youtube.com/embed/${videoId}?autoplay=1&start=${start}&enablejsapi=1&origin=https://www.youtube.com&widget_referrer=https://www.youtube.com&rel=0`;
+  return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&start=${start}&enablejsapi=1&playsinline=1&rel=0`;
 }
 
 function sendVideoCommand(func, args = []) {
@@ -5936,6 +5957,7 @@ function setSongVideoMode(mode) {
       showToast('Select a song first to view video');
       return;
     }
+    state.playRequestToken++;
     isVideoMode = true;
     songBtn?.classList.remove('active');
     videoBtn?.classList.add('active');
@@ -5945,6 +5967,7 @@ function setSongVideoMode(mode) {
     const curTime = Math.max(0, Math.floor(audio.currentTime || 0));
     try {
       audio.pause();
+      audio.currentTime = 0;
       audio.src = '';
     } catch (_) {}
     videoCurrentTime = curTime;

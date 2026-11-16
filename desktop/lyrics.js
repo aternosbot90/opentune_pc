@@ -64,6 +64,14 @@ function sanitizeTrack(trackName) {
     .trim();
 }
 
+function isTrackTitleMatch(queryTitle, candidateTitle) {
+  if (!queryTitle || !candidateTitle) return false;
+  const q = String(queryTitle).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const c = String(candidateTitle).toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!q || !c) return false;
+  return q.includes(c) || c.includes(q);
+}
+
 async function getLyrics(trackName, artistName, durationSec) {
   try {
     const cleanTrack = sanitizeTrack(trackName) || (trackName || '').trim();
@@ -95,16 +103,19 @@ async function getLyrics(trackName, artistName, durationSec) {
     if (searchRes.ok) {
       const items = await searchRes.json();
       if (Array.isArray(items) && items.length > 0) {
-        // Prefer item with synced lyrics and closest duration if known
-        let bestItem = items.find(it => it.syncedLyrics && durationSec && Math.abs((it.duration || 0) - durationSec) <= 6);
-        if (!bestItem) bestItem = items.find(it => it.syncedLyrics) || items[0];
+        // Enforce title similarity so unrelated tracks are never returned
+        const matching = items.filter(it => isTrackTitleMatch(cleanTrack, it.trackName));
+        if (matching.length > 0) {
+          let bestItem = matching.find(it => it.syncedLyrics && durationSec && Math.abs((it.duration || 0) - durationSec) <= 6);
+          if (!bestItem) bestItem = matching.find(it => it.syncedLyrics) || matching[0];
 
-        if (bestItem) {
-          return {
-            synced: parseLrc(bestItem.syncedLyrics),
-            plain: bestItem.plainLyrics || (bestItem.syncedLyrics ? bestItem.syncedLyrics.replace(/\[\d{2}:\d{2}\.?\d*\]/g, '').trim() : ''),
-            source: 'LRCLIB'
-          };
+          if (bestItem && (bestItem.syncedLyrics || bestItem.plainLyrics)) {
+            return {
+              synced: parseLrc(bestItem.syncedLyrics),
+              plain: bestItem.plainLyrics || (bestItem.syncedLyrics ? bestItem.syncedLyrics.replace(/\[\d{2}:\d{2}\.?\d*\]/g, '').trim() : ''),
+              source: 'LRCLIB'
+            };
+          }
         }
       }
     }
@@ -115,13 +126,17 @@ async function getLyrics(trackName, artistName, durationSec) {
       if (trackSearchRes.ok) {
         const items = await trackSearchRes.json();
         if (Array.isArray(items) && items.length > 0) {
-          let bestItem = items.find(it => it.syncedLyrics && durationSec && Math.abs((it.duration || 0) - durationSec) <= 4);
-          if (bestItem) {
-            return {
-              synced: parseLrc(bestItem.syncedLyrics),
-              plain: bestItem.plainLyrics || (bestItem.syncedLyrics ? bestItem.syncedLyrics.replace(/\[\d{2}:\d{2}\.?\d*\]/g, '').trim() : ''),
-              source: 'LRCLIB'
-            };
+          const matching = items.filter(it => isTrackTitleMatch(cleanTrack, it.trackName));
+          if (matching.length > 0) {
+            let bestItem = matching.find(it => it.syncedLyrics && durationSec && Math.abs((it.duration || 0) - durationSec) <= 4);
+            if (!bestItem) bestItem = matching.find(it => it.syncedLyrics);
+            if (bestItem && (bestItem.syncedLyrics || bestItem.plainLyrics)) {
+              return {
+                synced: parseLrc(bestItem.syncedLyrics),
+                plain: bestItem.plainLyrics || (bestItem.syncedLyrics ? bestItem.syncedLyrics.replace(/\[\d{2}:\d{2}\.?\d*\]/g, '').trim() : ''),
+                source: 'LRCLIB'
+              };
+            }
           }
         }
       }

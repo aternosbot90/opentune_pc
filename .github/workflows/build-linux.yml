@@ -1,0 +1,106 @@
+name: Build Linux AppImage & DEB
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-tools desktop-file-utils
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Bundle Linux yt-dlp binary
+        working-directory: desktop
+        run: |
+          mkdir -p bin
+          rm -f bin/yt-dlp.exe bin/yt-dlp_macos
+          curl -fL "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp" -o bin/yt-dlp
+          chmod +x bin/yt-dlp
+
+      - name: Sync package version with tag
+        if: github.ref_type == 'tag'
+        working-directory: desktop
+        run: |
+          TAG="${{ github.ref_name }}"
+          CLEAN_VER=$(echo "$TAG" | sed -E 's/^v//')
+          if [ -n "$CLEAN_VER" ]; then
+            node -e "const fs = require('fs'); const p = JSON.parse(fs.readFileSync('package.json', 'utf8')); if (p.version !== '$CLEAN_VER') { console.log('Syncing package.json version from ' + p.version + ' to $CLEAN_VER'); p.version = '$CLEAN_VER'; fs.writeFileSync('package.json', JSON.stringify(p, null, 2)); }"
+          fi
+
+      - name: Build OpenTune Linux AppImage & DEB
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build:linux
+
+      - name: List generated Linux build artifacts
+        working-directory: desktop
+        run: ls -lh dist/
+
+      - name: Upload Linux Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenTune-Linux-Packages
+          path: |
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+            desktop/dist/*.tar.gz
+            desktop/dist/*.blockmap
+            desktop/dist/latest-linux.yml
+          if-no-files-found: error
+
+      - name: Determine release tag
+        id: release_tag
+        working-directory: desktop
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ] && [ -n "${{ github.ref_name }}" ]; then
+            TAG="${{ github.ref_name }}"
+          else
+            VER=$(node -p "require('./package.json').version")
+            TAG="v$VER"
+          fi
+          echo "Target GitHub release tag: $TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Attach Linux Packages to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_tag.outputs.tag }}
+          name: ${{ steps.release_tag.outputs.tag }}
+          files: |
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+            desktop/dist/*.tar.gz
+            desktop/dist/*.blockmap
+            desktop/dist/latest-linux.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

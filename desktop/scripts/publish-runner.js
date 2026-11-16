@@ -51,6 +51,12 @@ if (targetPlatform === 'mac') {
     require('./bundle-mac-bin.js');
   } catch (_) {}
   builderArgs = ['--mac', 'dmg', 'zip', '--universal', '--publish', 'always'];
+} else if (targetPlatform === 'linux') {
+  // If running linux, bundle linux bin
+  try {
+    require('./bundle-linux-bin.js');
+  } catch (_) {}
+  builderArgs = ['--linux', 'AppImage', 'deb', '--x64', '--publish', 'always'];
 } else {
   builderArgs = ['--win', 'nsis', '--x64', '--publish', 'always'];
 }
