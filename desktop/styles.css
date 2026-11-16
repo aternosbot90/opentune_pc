@@ -218,6 +218,47 @@ body.light-theme .bento-green { background: rgba(22, 163, 74, 0.14); color: #158
 body.light-theme .bento-amber { background: rgba(217, 119, 6, 0.14); color: #b45309; }
 body.light-theme .bento-teal { background: rgba(13, 148, 136, 0.14); color: #0f766e; }
 
+/* Light Theme Typography & Clean Shadows */
+body.light-theme .section-title,
+body.light-theme .section-subtitle,
+body.light-theme .page-title,
+body.light-theme .settings-group-title,
+body.light-theme .home-dynamic-section h2,
+body.light-theme .section-header h2,
+body.light-theme h1,
+body.light-theme h2,
+body.light-theme h3 {
+  text-shadow: none !important;
+  color: var(--text-primary);
+}
+
+/* Light Theme Settings & Library Bento Cards */
+body.light-theme .settings-bento-card,
+body.light-theme .library-bento-card {
+  background: rgba(255, 255, 255, 0.88) !important;
+  color: #131620 !important;
+  border: 1px solid rgba(15, 20, 40, 0.12) !important;
+  box-shadow: 0 4px 16px rgba(15, 20, 40, 0.05), inset 0 1px 0 #ffffff !important;
+}
+body.light-theme .settings-bento-card:hover,
+body.light-theme .library-bento-card:hover {
+  background: #ffffff !important;
+  border-color: rgba(15, 20, 40, 0.22) !important;
+  box-shadow: 0 8px 24px rgba(15, 20, 40, 0.09) !important;
+}
+body.light-theme .settings-bento-card.active {
+  background: var(--accent-container) !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 4px 18px var(--accent-glow) !important;
+}
+body.light-theme .bento-card-title {
+  color: #131620 !important;
+  font-weight: 700;
+}
+body.light-theme .bento-card-sub {
+  color: #52586e !important;
+}
+
 /* Enhanced Liquid Frosted Glass Acrylic */
 body.liquid-glass .settings-group,
 body.liquid-glass .library-bento-card,
@@ -227,6 +268,15 @@ body.liquid-glass .modal-card {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), var(--glass-shadow);
   backdrop-filter: blur(34px) saturate(210%);
   -webkit-backdrop-filter: blur(34px) saturate(210%);
+}
+body.light-theme.liquid-glass .settings-group,
+body.light-theme.liquid-glass .library-bento-card,
+body.light-theme.liquid-glass .settings-bento-card,
+body.light-theme.liquid-glass .music-card,
+body.light-theme.liquid-glass .modal-card {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 8px 24px rgba(15, 20, 40, 0.08);
+  backdrop-filter: blur(34px) saturate(180%);
+  -webkit-backdrop-filter: blur(34px) saturate(180%);
 }
 
 /* Disable Blur Effects */
@@ -957,6 +1007,27 @@ input:checked + .switch-slider:before {
   background-position: center;
 }
 
+/* Light Theme Switch Slider Contrast & M3 Styling */
+body.light-theme .switch-slider {
+  background-color: #e4e7ee;
+  border: 1.5px solid rgba(15, 20, 40, 0.28);
+}
+
+body.light-theme .switch-slider:before {
+  background-color: #555b6f;
+  box-shadow: 0 1px 4px rgba(15, 20, 40, 0.22);
+}
+
+body.light-theme input:checked + .switch-slider {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 2px 10px var(--accent-glow);
+}
+
+body.light-theme input:checked + .switch-slider:before {
+  background-color: #ffffff;
+}
+
 /* M3 Select Dropdowns (Styled Native + Custom Glass Menu) */
 .setting-select {
   appearance: none;
@@ -982,6 +1053,20 @@ input:checked + .switch-slider:before {
 .setting-select:hover {
   border-color: rgba(255, 255, 255, 0.25);
   background-color: rgba(48, 51, 66, 0.9);
+}
+
+body.light-theme .setting-select {
+  color-scheme: light;
+  background-color: #ffffff !important;
+  border: 1px solid rgba(15, 20, 40, 0.16) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 1px 3px rgba(15, 20, 40, 0.05);
+}
+
+body.light-theme .setting-select:hover {
+  border-color: rgba(15, 20, 40, 0.32) !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(15, 20, 40, 0.08);
 }
 
 .setting-select:focus {
@@ -1136,7 +1221,7 @@ input:checked + .switch-slider:before {
 .palette-swatches {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -1146,7 +1231,12 @@ input:checked + .switch-slider:before {
   border-radius: var(--radius-full);
   cursor: pointer;
   border: 2px solid transparent;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .color-swatch:hover {
@@ -1154,9 +1244,58 @@ input:checked + .switch-slider:before {
 }
 
 .color-swatch.active {
-  border-color: #ffffff;
-  transform: scale(1.2);
-  box-shadow: 0 0 12px var(--accent-glow);
+  transform: scale(1.18);
+  box-shadow: 0 0 0 2.5px var(--bg-surface), 0 0 0 5px var(--accent), 0 4px 14px var(--accent-glow) !important;
+  border-color: transparent !important;
+}
+
+.color-swatch.active::after {
+  content: '';
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  transform: rotate(-45deg) translate(1px, -1px);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+body.light-theme .color-swatch.active {
+  box-shadow: 0 0 0 2.5px #ffffff, 0 0 0 5px var(--accent), 0 4px 14px rgba(15, 20, 40, 0.16) !important;
+}
+
+/* Custom Native Color Picker Match */
+input[type="color"]#setting-custom-color {
+  -webkit-appearance: none;
+  appearance: none;
+  border: none !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  cursor: pointer;
+  background: transparent !important;
+  box-sizing: border-box;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease;
+}
+
+input[type="color"]#setting-custom-color:hover {
+  transform: scale(1.15);
+}
+
+input[type="color"]#setting-custom-color::-webkit-color-swatch-wrapper {
+  padding: 0 !important;
+  border-radius: 50% !important;
+}
+
+input[type="color"]#setting-custom-color::-webkit-color-swatch {
+  border: 2px solid rgba(255, 255, 255, 0.35) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+body.light-theme input[type="color"]#setting-custom-color::-webkit-color-swatch {
+  border: 2px solid rgba(15, 20, 40, 0.22) !important;
+  box-shadow: 0 2px 6px rgba(15, 20, 40, 0.1);
 }
 
 /* Cards Grid */
@@ -4818,13 +4957,75 @@ body.compact-sidebar .sidebar-download-pill .sidebar-download-bar {
 .theme-preset-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   justify-content: flex-end;
 }
 
 .theme-preset-btn {
-  padding: 6px 12px;
-  font-size: 0.78rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.theme-preset-btn::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.theme-preset-btn[data-preset-color="#ED5564"]::before { background: #ED5564; box-shadow: 0 0 6px #ED5564; }
+.theme-preset-btn[data-preset-color="#00E5FF"]::before { background: #00E5FF; box-shadow: 0 0 6px #00E5FF; }
+.theme-preset-btn[data-preset-color="#8E44AD"]::before { background: #8E44AD; box-shadow: 0 0 6px #8E44AD; }
+.theme-preset-btn[data-preset-color="#FF9F1C"]::before { background: #FF9F1C; box-shadow: 0 0 6px #FF9F1C; }
+.theme-preset-btn[data-preset-color="#1DB954"]::before { background: #1DB954; box-shadow: 0 0 6px #1DB954; }
+.theme-preset-btn[data-preset-color="#D93848"]::before { background: #D93848; box-shadow: 0 0 6px #D93848; }
+.theme-preset-btn[data-preset-color="#2563EB"]::before { background: #2563EB; box-shadow: 0 0 6px #2563EB; }
+
+.theme-preset-btn:hover {
+  background: rgba(255, 255, 255, 0.11);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+}
+
+.theme-preset-btn.active {
+  background: var(--accent-container) !important;
+  color: var(--accent) !important;
+  border-color: var(--accent) !important;
+  font-weight: 600;
+  box-shadow: 0 2px 10px var(--accent-glow) !important;
+}
+
+body.light-theme .theme-preset-btn {
+  background: rgba(15, 20, 40, 0.05);
+  border: 1px solid rgba(15, 20, 40, 0.12);
+  color: #383f54;
+}
+
+body.light-theme .theme-preset-btn:hover {
+  background: rgba(15, 20, 40, 0.09);
+  color: #131620;
+  border-color: rgba(15, 20, 40, 0.22);
+}
+
+body.light-theme .theme-preset-btn.active {
+  background: var(--accent-container) !important;
+  color: var(--accent-on-container, var(--accent)) !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 3px 12px var(--accent-glow) !important;
 }
 
 /* ==========================================================================
@@ -4853,7 +5054,7 @@ body.compact-sidebar .sidebar-download-pill .sidebar-download-bar {
   color: var(--text-primary);
   text-align: left;
   cursor: pointer;
-  transition: transform 0.22s var(--anim-spring), background 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.22s var(--anim-spring), background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .settings-bento-card:hover,
@@ -4912,6 +5113,34 @@ body.compact-sidebar .sidebar-download-pill .sidebar-download-bar {
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 20px;
+}
+
+.settings-cat-chips .chip {
+  padding: 8px 18px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+body.light-theme .settings-cat-chips .chip {
+  background: rgba(15, 20, 40, 0.05);
+  border: 1px solid rgba(15, 20, 40, 0.12);
+  color: #383f54;
+}
+
+body.light-theme .settings-cat-chips .chip:hover {
+  background: rgba(15, 20, 40, 0.09);
+  color: #131620;
+  border-color: rgba(15, 20, 40, 0.2);
+  transform: translateY(-1px);
+}
+
+body.light-theme .settings-cat-chips .chip.active {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 4px 14px var(--accent-glow) !important;
 }
 
 .setting-range {
@@ -5353,10 +5582,11 @@ body[data-ui-theme="glassmorphism"] {
   --bg-player: rgba(16, 20, 32, 0.72);
   --bg-card: rgba(255, 255, 255, 0.04);
 }
-body[data-ui-theme="glassmorphism"] .track-card,
-body[data-ui-theme="glassmorphism"] .album-card,
-body[data-ui-theme="glassmorphism"] .playlist-card,
-body[data-ui-theme="glassmorphism"] .settings-bento-card {
+body[data-ui-theme="glassmorphism"]:not(.light-theme) .track-card,
+body[data-ui-theme="glassmorphism"]:not(.light-theme) .album-card,
+body[data-ui-theme="glassmorphism"]:not(.light-theme) .playlist-card,
+body[data-ui-theme="glassmorphism"]:not(.light-theme) .settings-bento-card,
+body[data-ui-theme="glassmorphism"]:not(.light-theme) .library-bento-card {
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -5379,10 +5609,13 @@ body.light-theme[data-ui-theme="glassmorphism"] {
 }
 body.light-theme[data-ui-theme="glassmorphism"] .track-card,
 body.light-theme[data-ui-theme="glassmorphism"] .album-card,
-body.light-theme[data-ui-theme="glassmorphism"] .settings-bento-card {
-  background: rgba(255, 255, 255, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 10px 28px rgba(20, 30, 60, 0.06);
+body.light-theme[data-ui-theme="glassmorphism"] .playlist-card,
+body.light-theme[data-ui-theme="glassmorphism"] .settings-bento-card,
+body.light-theme[data-ui-theme="glassmorphism"] .library-bento-card {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 10px 28px rgba(20, 30, 60, 0.06) !important;
+  color: #131620 !important;
 }
 
 /* 2. Apple iOS Style UI Glass */
@@ -5394,9 +5627,11 @@ body[data-ui-theme="ios-glass"] {
   --bg-player: rgba(22, 25, 33, 0.86);
   --frosted-blur: blur(42px) saturate(210%);
 }
-body[data-ui-theme="ios-glass"] .track-card,
-body[data-ui-theme="ios-glass"] .album-card,
-body[data-ui-theme="ios-glass"] .settings-bento-card {
+body[data-ui-theme="ios-glass"]:not(.light-theme) .track-card,
+body[data-ui-theme="ios-glass"]:not(.light-theme) .album-card,
+body[data-ui-theme="ios-glass"]:not(.light-theme) .playlist-card,
+body[data-ui-theme="ios-glass"]:not(.light-theme) .settings-bento-card,
+body[data-ui-theme="ios-glass"]:not(.light-theme) .library-bento-card {
   border-radius: 20px;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.02) 100%);
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -5416,11 +5651,15 @@ body.light-theme[data-ui-theme="ios-glass"] {
   --bg-card: rgba(255, 255, 255, 0.72);
 }
 body.light-theme[data-ui-theme="ios-glass"] .track-card,
-body.light-theme[data-ui-theme="ios-glass"] .album-card {
+body.light-theme[data-ui-theme="ios-glass"] .album-card,
+body.light-theme[data-ui-theme="ios-glass"] .playlist-card,
+body.light-theme[data-ui-theme="ios-glass"] .settings-bento-card,
+body.light-theme[data-ui-theme="ios-glass"] .library-bento-card {
   border-radius: 20px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 244, 252, 0.75) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.95);
-  box-shadow: inset 0 1px 1px #ffffff, 0 8px 24px rgba(15, 25, 45, 0.06);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 244, 252, 0.75) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
+  box-shadow: inset 0 1px 1px #ffffff, 0 8px 24px rgba(15, 25, 45, 0.06) !important;
+  color: #131620 !important;
 }
 
 /* 3. Liquid Glass: Fluid refraction with reactive glows */
@@ -5428,8 +5667,11 @@ body[data-ui-theme="liquid-glass"] {
   --bg-sidebar: rgba(12, 14, 22, 0.65);
   --bg-player: rgba(14, 16, 26, 0.72);
 }
-body[data-ui-theme="liquid-glass"] .track-card,
-body[data-ui-theme="liquid-glass"] .album-card {
+body[data-ui-theme="liquid-glass"]:not(.light-theme) .track-card,
+body[data-ui-theme="liquid-glass"]:not(.light-theme) .album-card,
+body[data-ui-theme="liquid-glass"]:not(.light-theme) .playlist-card,
+body[data-ui-theme="liquid-glass"]:not(.light-theme) .settings-bento-card,
+body[data-ui-theme="liquid-glass"]:not(.light-theme) .library-bento-card {
   background: radial-gradient(circle at 10% 15%, var(--accent-container) 0%, rgba(24, 28, 40, 0.65) 100%);
   border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow: 0 10px 28px -4px var(--accent-glow);
@@ -5441,23 +5683,54 @@ body[data-ui-theme="skeuomorphism"] {
   --bg-sidebar: #101217;
   --bg-player: #13151c;
 }
-body[data-ui-theme="skeuomorphism"] .track-card,
-body[data-ui-theme="skeuomorphism"] .album-card,
-body[data-ui-theme="skeuomorphism"] .settings-bento-card {
+body[data-ui-theme="skeuomorphism"]:not(.light-theme) .track-card,
+body[data-ui-theme="skeuomorphism"]:not(.light-theme) .album-card,
+body[data-ui-theme="skeuomorphism"]:not(.light-theme) .playlist-card,
+body[data-ui-theme="skeuomorphism"]:not(.light-theme) .settings-bento-card,
+body[data-ui-theme="skeuomorphism"]:not(.light-theme) .library-bento-card {
   background: linear-gradient(145deg, #181b24, #121319);
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 6px 6px 16px rgba(0, 0, 0, 0.5), -4px -4px 10px rgba(255, 255, 255, 0.04);
 }
-body[data-ui-theme="skeuomorphism"] .ctrl-btn,
-body[data-ui-theme="skeuomorphism"] .chip,
-body[data-ui-theme="skeuomorphism"] .btn-subtle {
+body[data-ui-theme="skeuomorphism"]:not(.light-theme) .ctrl-btn,
+body[data-ui-theme="skeuomorphism"]:not(.light-theme) .chip,
+body[data-ui-theme="skeuomorphism"]:not(.light-theme) .btn-subtle {
   background: linear-gradient(145deg, #1c1f2a, #14161f);
   box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.5), -2px -2px 6px rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
-body[data-ui-theme="skeuomorphism"] .ctrl-btn:active,
-body[data-ui-theme="skeuomorphism"] .chip.active {
+body[data-ui-theme="skeuomorphism"]:not(.light-theme) .ctrl-btn:active,
+body[data-ui-theme="skeuomorphism"]:not(.light-theme) .chip.active {
   box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.6), inset -2px -2px 4px rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Light Skeuomorphism (Soft Tactile Neumorphism) */
+body.light-theme[data-ui-theme="skeuomorphism"] {
+  --bg-app: #eef2f7;
+  --bg-sidebar: #e8ecf2;
+  --bg-player: #edf1f7;
+}
+body.light-theme[data-ui-theme="skeuomorphism"] .track-card,
+body.light-theme[data-ui-theme="skeuomorphism"] .album-card,
+body.light-theme[data-ui-theme="skeuomorphism"] .playlist-card,
+body.light-theme[data-ui-theme="skeuomorphism"] .settings-bento-card,
+body.light-theme[data-ui-theme="skeuomorphism"] .library-bento-card {
+  background: linear-gradient(145deg, #ffffff, #e6ebf2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 6px 6px 14px rgba(166, 175, 195, 0.5), -5px -5px 12px #ffffff !important;
+  color: #131620 !important;
+}
+body.light-theme[data-ui-theme="skeuomorphism"] .ctrl-btn,
+body.light-theme[data-ui-theme="skeuomorphism"] .chip,
+body.light-theme[data-ui-theme="skeuomorphism"] .btn-subtle {
+  background: linear-gradient(145deg, #ffffff, #e4e9f0) !important;
+  box-shadow: 3px 3px 7px rgba(166, 175, 195, 0.45), -2px -2px 6px #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  color: #131620 !important;
+}
+body.light-theme[data-ui-theme="skeuomorphism"] .ctrl-btn:active,
+body.light-theme[data-ui-theme="skeuomorphism"] .chip.active {
+  box-shadow: inset 3px 3px 6px rgba(166, 175, 195, 0.5), inset -2px -2px 5px #ffffff !important;
 }
 
 /* 5. Cyberpunk Neon */
@@ -5466,15 +5739,33 @@ body[data-ui-theme="cyber-neon"] {
   --bg-sidebar: #040508;
   --bg-player: #05060a;
 }
-body[data-ui-theme="cyber-neon"] .track-card,
-body[data-ui-theme="cyber-neon"] .album-card,
-body[data-ui-theme="cyber-neon"] .settings-bento-card {
+body[data-ui-theme="cyber-neon"]:not(.light-theme) .track-card,
+body[data-ui-theme="cyber-neon"]:not(.light-theme) .album-card,
+body[data-ui-theme="cyber-neon"]:not(.light-theme) .playlist-card,
+body[data-ui-theme="cyber-neon"]:not(.light-theme) .settings-bento-card,
+body[data-ui-theme="cyber-neon"]:not(.light-theme) .library-bento-card {
   background: rgba(10, 12, 18, 0.95);
   border: 1px solid var(--accent);
   box-shadow: 0 0 14px var(--accent-glow);
 }
-body[data-ui-theme="cyber-neon"] .section-title {
+body[data-ui-theme="cyber-neon"]:not(.light-theme) .section-title {
   text-shadow: 0 0 12px var(--accent);
+}
+
+/* Light Cyber Neon (High-Contrast Crisp Neon Accent without dark box or smeared text) */
+body.light-theme[data-ui-theme="cyber-neon"] .track-card,
+body.light-theme[data-ui-theme="cyber-neon"] .album-card,
+body.light-theme[data-ui-theme="cyber-neon"] .playlist-card,
+body.light-theme[data-ui-theme="cyber-neon"] .settings-bento-card,
+body.light-theme[data-ui-theme="cyber-neon"] .library-bento-card {
+  background: #ffffff !important;
+  border: 1.5px solid var(--accent) !important;
+  box-shadow: 0 4px 14px var(--accent-container) !important;
+  color: #131620 !important;
+}
+body.light-theme[data-ui-theme="cyber-neon"] .section-title {
+  text-shadow: none !important;
+  color: #131620 !important;
 }
 
 /* 6. Pitch Black AMOLED */
@@ -5484,12 +5775,25 @@ body[data-ui-theme="pure-black"] {
   --bg-player: #000000;
   --bg-surface: #0a0a0a;
 }
-body[data-ui-theme="pure-black"] .track-card,
-body[data-ui-theme="pure-black"] .album-card,
-body[data-ui-theme="pure-black"] .settings-bento-card {
+body[data-ui-theme="pure-black"]:not(.light-theme) .track-card,
+body[data-ui-theme="pure-black"]:not(.light-theme) .album-card,
+body[data-ui-theme="pure-black"]:not(.light-theme) .playlist-card,
+body[data-ui-theme="pure-black"]:not(.light-theme) .settings-bento-card,
+body[data-ui-theme="pure-black"]:not(.light-theme) .library-bento-card {
   background: #080808;
   border: 1px solid #1a1a1a;
   box-shadow: none;
+}
+
+body.light-theme[data-ui-theme="pure-black"] .track-card,
+body.light-theme[data-ui-theme="pure-black"] .album-card,
+body.light-theme[data-ui-theme="pure-black"] .playlist-card,
+body.light-theme[data-ui-theme="pure-black"] .settings-bento-card,
+body.light-theme[data-ui-theme="pure-black"] .library-bento-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 20, 40, 0.12) !important;
+  box-shadow: 0 2px 10px rgba(15, 20, 40, 0.05) !important;
+  color: #131620 !important;
 }
 
 /* Home Personalized Sections */

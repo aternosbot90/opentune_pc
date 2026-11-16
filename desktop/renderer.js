@@ -7350,6 +7350,9 @@ function loadSettings() {
 function saveSettings() {
   localStorage.setItem('opentune_settings', JSON.stringify(settings));
   applySettings();
+  if (typeof syncSettingsUI === 'function') {
+    syncSettingsUI();
+  }
 }
 
 function applyAccentColorVars(hex) {
@@ -7534,7 +7537,8 @@ function applySettings() {
   document.querySelectorAll('.theme-preset-btn').forEach(btn => {
     const matchMode = btn.dataset.presetMode === settings.darkMode;
     const matchColor = (btn.dataset.presetColor || '').toLowerCase() === c.toLowerCase() && !settings.dynamicTheme;
-    btn.classList.toggle('active', matchMode && matchColor);
+    const matchStyle = !btn.dataset.presetStyle || btn.dataset.presetStyle === (settings.uiThemeStyle || 'default');
+    btn.classList.toggle('active', matchMode && matchColor && matchStyle);
   });
 
   if (typeof applyAudioDspNodes === 'function') applyAudioDspNodes();
