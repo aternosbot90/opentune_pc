@@ -233,8 +233,33 @@ ipcMain.handle('get-stream-url', async (_event, videoId) => {
   }
 });
 
-// LRCLIB Synchronized lyrics resolver
-ipcMain.handle('get-lyrics', async (_event, { title, artist, duration }) => {
+// LRCLIB Synchronized lyrics resolver (with offline fallback)
+ipcMain.handle('get-lyrics', async (_event, payload) => {
+  const title = typeof payload === 'object' && payload !== null ? payload.title : arguments[1];
+  const artist = typeof payload === 'object' && payload !== null ? payload.artist : arguments[2];
+  const duration = typeof payload === 'object' && payload !== null ? payload.duration : arguments[3];
+  const trackId = typeof payload === 'object' && payload !== null ? payload.trackId : null;
+
+  // 1. Check offline lyrics cache
+  if (trackId && typeof getOfflineAssetDirs === 'function') {
+    try {
+      const { lyrics } = getOfflineAssetDirs();
+      const userLrcPath = path.join(lyrics, `${trackId}.lrc`);
+      if (fs.existsSync(userLrcPath)) {
+        const content = fs.readFileSync(userLrcPath, 'utf8');
+        const parsed = lyricsService.parseLrc(content);
+        if (parsed.length > 0 || content.trim()) {
+          return {
+            success: true,
+            synced: parsed,
+            plain: content,
+            source: 'Offline (Synced)'
+          };
+        }
+      }
+    } catch (_) {}
+  }
+
   try {
     const lyricsData = await lyricsService.getLyrics(title, artist, duration);
     return { success: true, ...lyricsData };
@@ -339,7 +364,16 @@ ipcMain.handle('get-track-details', async (_event, videoId) => {
   try {
     return await ytMusic.getTrackDetails(videoId);
   } catch (err) {
-    console.warn('Track details notice:', err.message);
+    console.warn('Track details online fetch notice, checking offline metadata:', err.message);
+    if (typeof getOfflineAssetDirs === 'function') {
+      try {
+        const { meta } = getOfflineAssetDirs();
+        const userMetaPath = path.join(meta, `${videoId}.json`);
+        if (fs.existsSync(userMetaPath)) {
+          return JSON.parse(fs.readFileSync(userMetaPath, 'utf8'));
+        }
+      } catch (_) {}
+    }
     return { videoId, error: err.message };
   }
 });
@@ -858,6 +892,300 @@ async function downloadTrackAudioFile(track, destDir, baseName) {
   });
 }
 
+function getOfflineAssetDirs() {
+  const base = app.getPath('userData');
+  const thumbs = path.join(base, 'offline_thumbnails');
+  const lyrics = path.join(base, 'offline_lyrics');
+  const meta = path.join(base, 'offline_metadata');
+  try {
+    if (!fs.existsSync(thumbs)) fs.mkdirSync(thumbs, { recursive: true });
+    if (!fs.existsSync(lyrics)) fs.mkdirSync(lyrics, { recursive: true });
+    if (!fs.existsSync(meta)) fs.mkdirSync(meta, { recursive: true });
+  } catch (_) {}
+  return { thumbs, lyrics, meta };
+}
+
+function parseDurationSec(dur) {
+  if (typeof dur === 'number') return dur;
+  if (!dur || typeof dur !== 'string') return 0;
+  const parts = dur.trim().split(':').map(Number);
+  if (parts.some(isNaN)) return 0;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return 0;
+}
+
+function upgradeCoverUrl(url, size = 800) {
+  if (!url || typeof url !== 'string') return '';
+  let clean = url.trim();
+  if (clean.startsWith('//')) clean = 'https:' + clean;
+  if (clean.includes('googleusercontent.com') || clean.includes('ggpht.com')) {
+    clean = clean
+      .replace(/=w\d+-h\d+[^?#]*/, `=w${size}-h${size}-l90-rj`)
+      .replace(/=s\d+[^?#]*/, `=s${size}-c`);
+    if (!clean.includes(`=w${size}`) && !clean.includes(`=s${size}`)) {
+      clean += clean.includes('=') ? `=w${size}-h${size}-l90-rj` : `=w${size}-h${size}-l90-rj`;
+    }
+    return clean;
+  }
+  if (clean.includes('i.ytimg.com')) {
+    return clean.replace(/\/(default|mqdefault|hqdefault)\.jpg/, '/hqdefault.jpg');
+  }
+  return clean;
+}
+
+function findExistingImageFile(dir, baseName, videoId) {
+  const exts = ['.jpg', '.jpeg', '.png', '.webp'];
+  if (dir && fs.existsSync(dir)) {
+    if (baseName) {
+      for (const ext of exts) {
+        const p = path.join(dir, `${baseName}${ext}`);
+        if (fs.existsSync(p) && fs.statSync(p).size > 256) {
+          return `file:///${p.replace(/\\/g, '/')}`;
+        }
+      }
+    }
+    for (const ext of exts) {
+      const pl = path.join(dir, `cover${ext}`);
+      if (fs.existsSync(pl) && fs.statSync(pl).size > 256) {
+        return `file:///${pl.replace(/\\/g, '/')}`;
+      }
+    }
+  }
+  if (videoId) {
+    const { thumbs } = getOfflineAssetDirs();
+    for (const ext of exts) {
+      const p = path.join(thumbs, `${videoId}${ext}`);
+      if (fs.existsSync(p) && fs.statSync(p).size > 256) {
+        return `file:///${p.replace(/\\/g, '/')}`;
+      }
+    }
+  }
+  return null;
+}
+
+function findExistingLyrics(dir, baseName, videoId) {
+  if (dir && baseName) {
+    const p = path.join(dir, `${baseName}.lrc`);
+    if (fs.existsSync(p)) {
+      try {
+        const content = fs.readFileSync(p, 'utf8');
+        return { lrcPath: p, content, parsed: lyricsService.parseLrc(content) };
+      } catch (_) {}
+    }
+  }
+  if (videoId) {
+    const { lyrics } = getOfflineAssetDirs();
+    const p = path.join(lyrics, `${videoId}.lrc`);
+    if (fs.existsSync(p)) {
+      try {
+        const content = fs.readFileSync(p, 'utf8');
+        return { lrcPath: p, content, parsed: lyricsService.parseLrc(content) };
+      } catch (_) {}
+    }
+  }
+  return null;
+}
+
+function findExistingMetadata(dir, baseName, videoId) {
+  if (dir && baseName) {
+    const p = path.join(dir, `${baseName}.info.json`);
+    if (fs.existsSync(p)) {
+      try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (_) {}
+    }
+  }
+  if (videoId) {
+    const { meta } = getOfflineAssetDirs();
+    const p = path.join(meta, `${videoId}.json`);
+    if (fs.existsSync(p)) {
+      try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (_) {}
+    }
+  }
+  return null;
+}
+
+function resolveAccompanyingAssets(dir, baseName, videoId) {
+  const thumbUrl = findExistingImageFile(dir, baseName, videoId);
+  const lyricsObj = findExistingLyrics(dir, baseName, videoId);
+  const metaObj = findExistingMetadata(dir, baseName, videoId);
+  return { thumbUrl, lyricsObj, metaObj };
+}
+
+async function downloadAndCacheThumbnail(track, destDir, baseName, isPlaylist = false) {
+  const { thumbs } = getOfflineAssetDirs();
+  const trackId = String(track?.id || track?.videoId || '').trim();
+  const destJpg = destDir && baseName ? path.join(destDir, `${baseName}.jpg`) : null;
+  const userThumbJpg = trackId ? path.join(thumbs, `${trackId}.jpg`) : null;
+
+  if (destJpg && fs.existsSync(destJpg) && fs.statSync(destJpg).size > 512) {
+    if (userThumbJpg && !fs.existsSync(userThumbJpg)) {
+      try { fs.copyFileSync(destJpg, userThumbJpg); } catch (_) {}
+    }
+    return `file:///${destJpg.replace(/\\/g, '/')}`;
+  }
+  if (userThumbJpg && fs.existsSync(userThumbJpg) && fs.statSync(userThumbJpg).size > 512) {
+    if (destJpg && !fs.existsSync(destJpg)) {
+      try { fs.copyFileSync(userThumbJpg, destJpg); } catch (_) {}
+    }
+    return `file:///${userThumbJpg.replace(/\\/g, '/')}`;
+  }
+
+  const rawThumb = track?.thumbnail || '';
+  if (!rawThumb || typeof rawThumb !== 'string') return '';
+  const highResUrl = upgradeCoverUrl(rawThumb, 800);
+  if (!highResUrl.startsWith('http://') && !highResUrl.startsWith('https://')) return '';
+
+  try {
+    const res = await fetchWithTimeout(highResUrl, { headers: DOWNLOAD_HTTP_HEADERS }, 12000);
+    if (res.ok) {
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length > 512) {
+        if (destJpg) fs.writeFileSync(destJpg, buf);
+        if (userThumbJpg) fs.writeFileSync(userThumbJpg, buf);
+        if (isPlaylist && destDir) {
+          const plCover = path.join(destDir, 'cover.jpg');
+          if (!fs.existsSync(plCover)) fs.writeFileSync(plCover, buf);
+        }
+        return destJpg ? `file:///${destJpg.replace(/\\/g, '/')}` : `file:///${userThumbJpg.replace(/\\/g, '/')}`;
+      }
+    }
+  } catch (err) {
+    console.warn(`[OpenTune] Thumbnail caching notice for "${track?.title}":`, err.message);
+  }
+  return '';
+}
+
+async function downloadAndCacheLyrics(track, destDir, baseName) {
+  const { lyrics } = getOfflineAssetDirs();
+  const trackId = String(track?.id || track?.videoId || '').trim();
+  const destLrc = destDir && baseName ? path.join(destDir, `${baseName}.lrc`) : null;
+  const userLrc = trackId ? path.join(lyrics, `${trackId}.lrc`) : null;
+
+  if (destLrc && fs.existsSync(destLrc)) {
+    try {
+      const content = fs.readFileSync(destLrc, 'utf8');
+      if (userLrc && !fs.existsSync(userLrc)) fs.writeFileSync(userLrc, content, 'utf8');
+      return { lrcPath: destLrc, content, parsed: lyricsService.parseLrc(content) };
+    } catch (_) {}
+  }
+  if (userLrc && fs.existsSync(userLrc)) {
+    try {
+      const content = fs.readFileSync(userLrc, 'utf8');
+      if (destLrc && !fs.existsSync(destLrc)) fs.writeFileSync(destLrc, content, 'utf8');
+      return { lrcPath: userLrc, content, parsed: lyricsService.parseLrc(content) };
+    } catch (_) {}
+  }
+
+  try {
+    const durSec = typeof track?.duration === 'number' ? track.duration : parseDurationSec(track?.duration);
+    const lyricsData = await lyricsService.getLyrics(track?.title, track?.artist, durSec);
+    let lrcText = '';
+    if (lyricsData?.synced && Array.isArray(lyricsData.synced) && lyricsData.synced.length > 0) {
+      lrcText = lyricsService.formatLrc(lyricsData.synced);
+    } else if (lyricsData?.plain) {
+      lrcText = lyricsData.plain;
+    }
+
+    if (lrcText && lrcText.trim().length > 0) {
+      if (destLrc) fs.writeFileSync(destLrc, lrcText, 'utf8');
+      if (userLrc) fs.writeFileSync(userLrc, lrcText, 'utf8');
+      return {
+        lrcPath: destLrc || userLrc,
+        content: lrcText,
+        parsed: lyricsData?.synced || lyricsService.parseLrc(lrcText)
+      };
+    }
+  } catch (err) {
+    console.warn(`[OpenTune] Lyrics caching notice for "${track?.title}":`, err.message);
+  }
+  return null;
+}
+
+async function downloadAndCacheMetadata(track, destDir, baseName, extraInfo = {}) {
+  const { meta } = getOfflineAssetDirs();
+  const trackId = String(track?.id || track?.videoId || '').trim();
+  const destInfo = destDir && baseName ? path.join(destDir, `${baseName}.info.json`) : null;
+  const userInfo = trackId ? path.join(meta, `${trackId}.json`) : null;
+
+  let existingMeta = null;
+  if (destInfo && fs.existsSync(destInfo)) {
+    try { existingMeta = JSON.parse(fs.readFileSync(destInfo, 'utf8')); } catch (_) {}
+  }
+  if (!existingMeta && userInfo && fs.existsSync(userInfo)) {
+    try { existingMeta = JSON.parse(fs.readFileSync(userInfo, 'utf8')); } catch (_) {}
+  }
+
+  let details = null;
+  if (trackId) {
+    try {
+      details = await ytMusic.getTrackDetails(trackId);
+    } catch (_) {}
+  }
+
+  const combinedMeta = {
+    id: trackId,
+    videoId: trackId,
+    title: track?.title || details?.title || existingMeta?.title || 'Unknown Track',
+    artist: track?.artist || details?.author || existingMeta?.artist || 'Unknown Artist',
+    album: track?.album || details?.album || existingMeta?.album || '',
+    duration: track?.duration || existingMeta?.duration || '',
+    year: details?.uploadDate || track?.year || existingMeta?.year || '',
+    views: details?.views || existingMeta?.views || 0,
+    likes: details?.likes || existingMeta?.likes || 0,
+    dislikes: details?.dislikes || existingMeta?.dislikes || 0,
+    rating: details?.rating || existingMeta?.rating || null,
+    uploadDate: details?.uploadDate || existingMeta?.uploadDate || '',
+    description: details?.description || existingMeta?.description || '',
+    channelId: details?.channelId || existingMeta?.channelId || '',
+    thumbnail: track?.thumbnail || existingMeta?.thumbnail || '',
+    localThumbnail: extraInfo.localThumbnail || existingMeta?.localThumbnail || '',
+    audioFile: extraInfo.audioFile || existingMeta?.audioFile || '',
+    downloadedAt: existingMeta?.downloadedAt || new Date().toISOString()
+  };
+
+  try {
+    const jsonStr = JSON.stringify(combinedMeta, null, 2);
+    if (destInfo) fs.writeFileSync(destInfo, jsonStr, 'utf8');
+    if (userInfo) fs.writeFileSync(userInfo, jsonStr, 'utf8');
+  } catch (err) {
+    console.warn(`[OpenTune] Metadata save notice for "${track?.title}":`, err.message);
+  }
+
+  return combinedMeta;
+}
+
+async function downloadAllTrackAssets(track, destDir, baseName, isPlaylist = false) {
+  const audioResult = await downloadTrackAudioFile(track, destDir, baseName);
+
+  let localThumbnail = '';
+  let lyricsResult = null;
+  let metadata = null;
+
+  try {
+    const [thumbRes, lrcRes] = await Promise.all([
+      downloadAndCacheThumbnail(track, destDir, baseName, isPlaylist).catch(() => ''),
+      downloadAndCacheLyrics(track, destDir, baseName).catch(() => null)
+    ]);
+    localThumbnail = thumbRes || '';
+    lyricsResult = lrcRes || null;
+
+    metadata = await downloadAndCacheMetadata(track, destDir, baseName, {
+      localThumbnail,
+      audioFile: audioResult.filePath
+    }).catch(() => null);
+  } catch (err) {
+    console.warn(`[OpenTune] Offline asset caching notice for "${track?.title}":`, err.message);
+  }
+
+  return {
+    filePath: audioResult.filePath,
+    skipped: audioResult.skipped,
+    localThumbnail,
+    lyrics: lyricsResult,
+    metadata
+  };
+}
+
 ipcMain.handle('get-download-config', async () => {
   return {
     downloadDir: resolveDownloadBaseDir(),
@@ -927,9 +1255,10 @@ ipcMain.handle('download-playlist', async (event, { title, tracks, downloadDir }
       const safeTitle = sanitizeFilename(track?.title || 'Track');
       const baseName = `${trackNum} - ${safeArtist} - ${safeTitle}`;
       let trackSucceeded = false;
+      let trackResult = null;
 
       try {
-        await downloadTrackAudioFile(track, baseDir, baseName);
+        trackResult = await downloadAllTrackAssets(track, baseDir, baseName, true);
         if (!currentDownloadAbort) {
           downloadedCount++;
           trackSucceeded = true;
@@ -952,6 +1281,9 @@ ipcMain.handle('download-playlist', async (event, { title, tracks, downloadDir }
           folderPath: baseDir,
           downloadedCount,
           failedCount,
+          localThumbnail: trackResult?.localThumbnail || '',
+          metadata: trackResult?.metadata || null,
+          lyrics: trackResult?.lyrics || null,
           lastError
         });
       }
@@ -1009,12 +1341,34 @@ ipcMain.handle('download-single-track', async (_event, payload) => {
 
   try {
     currentDownloadAbort = false;
-    const result = await downloadTrackAudioFile(track, baseDir, baseName);
-    return { success: true, filePath: result.filePath, folderPath: baseDir };
+    const result = await downloadAllTrackAssets(track, baseDir, baseName, false);
+    return {
+      success: true,
+      filePath: result.filePath,
+      folderPath: baseDir,
+      localThumbnail: result.localThumbnail,
+      lyrics: result.lyrics,
+      metadata: result.metadata
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }
 });
+
+function makeLocalTrackResponse(fullPath, videoId) {
+  const dir = path.dirname(fullPath);
+  const base = path.basename(fullPath, path.extname(fullPath));
+  const { thumbUrl, lyricsObj, metaObj } = resolveAccompanyingAssets(dir, base, videoId);
+  return {
+    exists: true,
+    filePath: fullPath,
+    fileUrl: `file:///${fullPath.replace(/\\/g, '/')}`,
+    thumbnailUrl: thumbUrl || null,
+    lyricsText: lyricsObj?.content || null,
+    parsedLyrics: lyricsObj?.parsed || null,
+    metadata: metaObj || null
+  };
+}
 
 ipcMain.handle('check-local-track-file', async (_event, payload) => {
   const track = payload?.track;
@@ -1042,11 +1396,7 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
   for (const name of candidateNames) {
     const directFile = findExistingAudioFile(rootDir, name);
     if (directFile) {
-      return {
-        exists: true,
-        filePath: directFile,
-        fileUrl: `file:///${directFile.replace(/\\/g, '/')}`
-      };
+      return makeLocalTrackResponse(directFile, videoId);
     }
   }
 
@@ -1058,11 +1408,7 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
         for (const name of candidateNames) {
           const subDirect = findExistingAudioFile(subDir, name);
           if (subDirect) {
-            return {
-              exists: true,
-              filePath: subDirect,
-              fileUrl: `file:///${subDirect.replace(/\\/g, '/')}`
-            };
+            return makeLocalTrackResponse(subDirect, videoId);
           }
         }
         try {
@@ -1077,11 +1423,7 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
               const fullPath = path.join(subDir, file);
               try {
                 if (fs.statSync(fullPath).size > 32768) {
-                  return {
-                    exists: true,
-                    filePath: fullPath,
-                    fileUrl: `file:///${fullPath.replace(/\\/g, '/')}`
-                  };
+                  return makeLocalTrackResponse(fullPath, videoId);
                 }
               } catch (_) {}
             }
@@ -1097,11 +1439,7 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
             const fullPath = path.join(rootDir, ent.name);
             try {
               if (fs.statSync(fullPath).size > 32768) {
-                return {
-                  exists: true,
-                  filePath: fullPath,
-                  fileUrl: `file:///${fullPath.replace(/\\/g, '/')}`
-                };
+                return makeLocalTrackResponse(fullPath, videoId);
               }
             } catch (_) {}
           }
@@ -1111,6 +1449,83 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
   } catch (_) {}
 
   return { exists: false };
+});
+
+ipcMain.handle('sync-offline-tracks', async (_event, tracks) => {
+  if (!Array.isArray(tracks)) return [];
+  const rootDir = resolveDownloadBaseDir();
+  const { thumbs, meta } = getOfflineAssetDirs();
+
+  return tracks.map(track => {
+    if (!track) return track;
+    const videoId = String(track.id || track.videoId || '').trim();
+    const cleanArt = cleanArtistName(track.artist || 'Unknown Artist');
+    const safeArtist = sanitizeFilename(cleanArt);
+    const safeTitle = sanitizeFilename(track.title || 'Track');
+
+    let localThumb = '';
+    if (videoId) {
+      const userThumb = path.join(thumbs, `${videoId}.jpg`);
+      if (fs.existsSync(userThumb)) {
+        localThumb = `file:///${userThumb.replace(/\\/g, '/')}`;
+      }
+    }
+
+    let cachedMeta = null;
+    if (videoId) {
+      const userMeta = path.join(meta, `${videoId}.json`);
+      if (fs.existsSync(userMeta)) {
+        try { cachedMeta = JSON.parse(fs.readFileSync(userMeta, 'utf8')); } catch (_) {}
+      }
+    }
+
+    if (!localThumb && fs.existsSync(rootDir)) {
+      const candidateNames = [`${safeArtist} - ${safeTitle}`, safeTitle, videoId];
+      for (const name of candidateNames) {
+        const directThumb = findExistingImageFile(rootDir, name, videoId);
+        if (directThumb) {
+          localThumb = directThumb;
+          break;
+        }
+      }
+    }
+
+    return {
+      ...track,
+      album: track.album || cachedMeta?.album || '',
+      thumbnail: localThumb || track.thumbnail || 'assets/icon.png',
+      localThumbnail: localThumb || track.localThumbnail || '',
+      isOfflineAvailable: Boolean(localThumb || cachedMeta)
+    };
+  });
+});
+
+ipcMain.handle('cache-missing-offline-assets', async (_event, tracks) => {
+  if (!Array.isArray(tracks) || tracks.length === 0) return { updatedCount: 0 };
+  const rootDir = resolveDownloadBaseDir();
+  let updatedCount = 0;
+  for (const track of tracks) {
+    if (!track?.id) continue;
+    const videoId = track.id;
+    const { thumbs, lyrics, meta } = getOfflineAssetDirs();
+    const hasThumb = fs.existsSync(path.join(thumbs, `${videoId}.jpg`));
+    const hasLyrics = fs.existsSync(path.join(lyrics, `${videoId}.lrc`));
+    const hasMeta = fs.existsSync(path.join(meta, `${videoId}.json`));
+    if (hasThumb && hasLyrics && hasMeta) continue;
+
+    const cleanArt = cleanArtistName(track.artist || 'Unknown Artist');
+    const safeArtist = sanitizeFilename(cleanArt);
+    const safeTitle = sanitizeFilename(track.title || 'Track');
+    const baseName = `${safeArtist} - ${safeTitle}`;
+
+    try {
+      if (!hasThumb) await downloadAndCacheThumbnail(track, rootDir, baseName, false);
+      if (!hasLyrics) await downloadAndCacheLyrics(track, rootDir, baseName);
+      if (!hasMeta) await downloadAndCacheMetadata(track, rootDir, baseName);
+      updatedCount++;
+    } catch (_) {}
+  }
+  return { updatedCount };
 });
 
 // --- In-App Auto Updates (electron-updater for Windows & macOS) ---

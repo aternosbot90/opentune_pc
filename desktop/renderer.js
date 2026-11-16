@@ -776,9 +776,26 @@ function updateNpDownloadButtonState(trackId) {
     : '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>';
 }
 
-function persistDownloadedTrack(track) {
+function persistDownloadedTrack(track, extraData = {}) {
   if (!track?.id) return;
   sessionDownloadedIds.add(track.id);
+  const localThumb = extraData.localThumbnail || track.localThumbnail || '';
+  const finalThumb = localThumb || track.thumbnail || '';
+  const finalAlbum = track.album || extraData.metadata?.album || '';
+
+  // Cache lyrics if returned
+  if (extraData.lyrics?.content) {
+    try {
+      localStorage.setItem('opentune_custom_lyrics_' + track.id, extraData.lyrics.content);
+    } catch (_) {}
+  }
+  // Cache stats / metadata if returned
+  if (extraData.metadata) {
+    try {
+      localStorage.setItem('opentune_track_stats_' + track.id, JSON.stringify(extraData.metadata));
+    } catch (_) {}
+  }
+
   try {
     const saved = JSON.parse(localStorage.getItem('opentune_downloaded_tracks') || '[]');
     const filtered = Array.isArray(saved) ? saved.filter(t => t && t.id !== track.id) : [];
@@ -786,9 +803,10 @@ function persistDownloadedTrack(track) {
       id: track.id,
       title: track.title || 'Unknown Track',
       artist: track.artist || 'Unknown Artist',
-      album: track.album || '',
+      album: finalAlbum,
       duration: track.duration || '',
-      thumbnail: track.thumbnail || ''
+      thumbnail: finalThumb,
+      localThumbnail: localThumb
     });
     localStorage.setItem('opentune_downloaded_tracks', JSON.stringify(filtered.slice(0, 1000)));
   } catch (_) {}
@@ -815,9 +833,9 @@ async function downloadTrackWithFeedback(track, triggerBtn = null) {
       downloadDir: settings.downloadPath || ''
     });
     if (res.success) {
-      persistDownloadedTrack(track);
+      persistDownloadedTrack(track, res);
       if (state.currentTrack?.id === track.id) updateNpDownloadButtonState(track.id);
-      showToast(`Downloaded "${track.title}"`, 'success', 5500, {
+      showToast(`Downloaded "${track.title}" (Artwork & Lyrics Included)`, 'success', 5500, {
         label: 'Open Folder',
         onClick: () => window.api.openDownloadFolder(res.folderPath)
       });
@@ -985,6 +1003,28 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
   if (requestToken !== state.playRequestToken) return;
 
   if (localFile && localFile.exists && localFile.fileUrl) {
+    if (localFile.thumbnailUrl) {
+      track.localThumbnail = localFile.thumbnailUrl;
+      track.thumbnail = localFile.thumbnailUrl;
+      if (playerThumb) playerThumb.src = localFile.thumbnailUrl;
+      const npCover = document.getElementById('np-cover-img');
+      if (npCover) npCover.src = localFile.thumbnailUrl;
+      const npGlow = document.getElementById('np-ambient-glow');
+      if (npGlow) npGlow.style.backgroundImage = `url("${localFile.thumbnailUrl}")`;
+      const aodCover = document.getElementById('aod-cover-img');
+      if (aodCover) aodCover.src = localFile.thumbnailUrl;
+    }
+    if (localFile.parsedLyrics && Array.isArray(localFile.parsedLyrics) && localFile.parsedLyrics.length > 0) {
+      state.currentLyrics = localFile.parsedLyrics;
+      state.lyricsSource = 'Offline (Synced)';
+      state.activeLyricsIndex = -1;
+      renderLyrics(localFile.parsedLyrics);
+    }
+    if (localFile.metadata) {
+      try {
+        localStorage.setItem('opentune_track_stats_' + track.id, JSON.stringify(localFile.metadata));
+      } catch (_) {}
+    }
     if (typeof ensureEqualizerReady === 'function') ensureEqualizerReady();
     if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
       eqAudioCtx.resume().catch(() => {});
@@ -1810,7 +1850,7 @@ async function fetchLyrics(track) {
   // 2. Fetch from LRCLIB / Online
   try {
     const durSec = parseDurationToSeconds(track.duration);
-    const res = await window.api.getLyrics(track.title, track.artist, durSec);
+    const res = await window.api.getLyrics(track.title, track.artist, durSec, track.id);
     if (token !== lyricsRequestToken || state.currentTrack?.id !== targetTrackId) return;
 
     const syncedLines = res.synced || res.lines || [];
@@ -4018,16 +4058,22 @@ function createTrackRow(track, number, playlistQueue) {
   const isLiked = state.likedSongs.has(track.id);
   const isDownloaded = typeof sessionDownloadedIds !== 'undefined' && sessionDownloadedIds.has(track.id);
 
+  const albumText = track.album || '';
+  const albumHtml = albumText
+    ? `<span class="clickable-album-link">${escapeHtmlSafe(albumText)}</span>`
+    : `<span style="color:var(--text-muted); opacity:0.55;">Single</span>`;
+  const thumbSrc = upgradeCover(track.localThumbnail || track.thumbnail, 544);
+
   tr.innerHTML = `
     <td class="track-col-num">${number}</td>
     <td class="track-col-title">
-      <img class="track-thumb" src="${upgradeCover(track.thumbnail, 544)}" loading="lazy" title="${track.album ? 'Open album: ' + track.album : ''}">
+      <img class="track-thumb" src="${thumbSrc}" loading="lazy" onerror="this.onerror=null;this.src='assets/icon.png';" title="${track.album ? 'Open album: ' + track.album : ''}">
       <div class="track-info">
         <span class="track-name">${track.title}</span>
         <span class="track-artist">${renderArtistLinksHtml(track)}</span>
       </div>
     </td>
-    <td class="track-col-album">${track.album ? `<span class="clickable-album-link">${track.album}</span>` : ''}</td>
+    <td class="track-col-album">${albumHtml}</td>
     <td class="track-col-duration">${track.duration || ''}</td>
     <td class="track-col-actions">
       ${isDownloaded ? '<span class="track-downloaded-badge" title="Downloaded Offline"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>' : ''}
@@ -4835,7 +4881,7 @@ async function startBatchDownload(title, tracks, btnEl, statusEl) {
     if (!isBatchDownloading) return;
     if (data.trackSucceeded && data.trackId) {
       const doneTrack = Array.isArray(tracks) ? tracks.find(t => t && (t.id === data.trackId || t.videoId === data.trackId)) : null;
-      persistDownloadedTrack(doneTrack || { id: data.trackId, title: data.trackTitle });
+      persistDownloadedTrack(doneTrack || { id: data.trackId, title: data.trackTitle }, data);
     }
     const pct = data.total > 0 ? Math.min(100, Math.round((data.downloadedCount / data.total) * 100)) : 0;
     if (btnEl) {
@@ -5353,7 +5399,17 @@ function openPlaylistDetail(playlist, isLocal = false, skipBackgroundSync = fals
 
   document.getElementById('detail-playlist-title').textContent = playlist.title;
   document.getElementById('detail-playlist-count').textContent = `${playlist.tracks?.length || 0} tracks`;
-  document.getElementById('detail-playlist-thumb').src = upgradeCover(playlist.thumbnail, 800);
+
+  const thumbEl = document.getElementById('detail-playlist-thumb');
+  if (thumbEl) {
+    let coverSrc = playlist.thumbnail;
+    if (playlist.id === 'downloaded-offline' && Array.isArray(playlist.tracks)) {
+      const withLocal = playlist.tracks.find(t => t?.localThumbnail);
+      if (withLocal?.localThumbnail) coverSrc = withLocal.localThumbnail;
+    }
+    thumbEl.src = upgradeCover(coverSrc || 'assets/icon.png', 800);
+    thumbEl.onerror = function() { this.src = 'assets/icon.png'; };
+  }
 
   const importBtn = document.getElementById('detail-playlist-import-btn');
   if (importBtn) importBtn.style.display = 'none';
@@ -6312,8 +6368,9 @@ async function openSongInfoModal() {
   if (artistEl) artistEl.textContent = cleanArtistName(track.artist || 'Unknown Artist');
 
   if (coverEl) {
-    const coverSrc = upgradeCover(track.thumbnail, 400);
+    const coverSrc = upgradeCover(track.localThumbnail || track.thumbnail, 400);
     coverEl.src = coverSrc;
+    coverEl.onerror = function() { this.src = 'assets/icon.png'; };
     const needsCrop = /i\.ytimg\.com\/vi\/[^/]+\/(hqdefault|sddefault|0)\.jpg/i.test(coverSrc) || (track.thumbnail && track.thumbnail.includes('ytimg.com'));
     coverEl.classList.toggle('yt-crop-letterbox', Boolean(needsCrop));
   }
@@ -6329,37 +6386,8 @@ async function openSongInfoModal() {
     statusBadge.textContent = 'Official Release';
   }
 
-  if (viewsEl) viewsEl.textContent = 'Loading...';
-  if (viewsBadge) viewsBadge.textContent = '';
-  if (likesEl) likesEl.textContent = 'Loading...';
-  if (likesBadge) likesBadge.textContent = '';
-  if (dislikesEl) dislikesEl.textContent = 'Loading...';
-  if (dislikesBadge) dislikesBadge.textContent = '';
-  if (ratingEl) ratingEl.textContent = 'Loading...';
-  if (ratingBadge) ratingBadge.textContent = '';
-  if (dateEl) dateEl.textContent = 'Loading...';
-  if (descEl) descEl.textContent = 'Fetching description & metadata...';
-
-  const btnOpenYt = document.getElementById('info-open-yt-btn');
-  if (btnOpenYt) {
-    btnOpenYt.onclick = () => {
-      window.api.openExternalUrl(`https://www.youtube.com/watch?v=${track.id}`);
-    };
-  }
-  const btnCopyStats = document.getElementById('info-copy-details-btn');
-  if (btnCopyStats) {
-    btnCopyStats.onclick = () => {
-      const summaryText = `Track: ${track.title} - ${cleanArtistName(track.artist)}\nRelease: ${dateEl ? dateEl.textContent : ''}\nViews: ${viewsEl ? viewsEl.textContent : ''}\nLikes: ${likesEl ? likesEl.textContent : ''}\nRating: ${ratingEl ? ratingEl.textContent : ''}\nLink: https://www.youtube.com/watch?v=${track.id}`;
-      navigator.clipboard.writeText(summaryText)
-        .then(() => showToast('Song info & stats copied to clipboard! 📋'))
-        .catch(() => showToast('Could not copy to clipboard', 'error'));
-    };
-  }
-
-  try {
-    const details = await window.api.getTrackDetails(track.id);
+  function applyStatsDetails(details) {
     if (!details) return;
-
     if (viewsEl) viewsEl.textContent = typeof details.views === 'number' ? Number(details.views).toLocaleString() : (details.views || '--');
     if (viewsBadge) viewsBadge.textContent = details.views ? formatCompactNumber(details.views) : '';
 
@@ -6382,10 +6410,55 @@ async function openSongInfoModal() {
     if (ratingFillEl) ratingFillEl.style.width = `${pct}%`;
 
     if (dateEl) dateEl.textContent = formatSongDate(details.uploadDate || track.year) || 'Available on YouTube Music';
-    if (descEl) descEl.textContent = details.description || 'No detailed description provided by creator.';
+    if (descEl) descEl.textContent = details.description || 'Offline track profile & metadata loaded.';
+  }
+
+  let cachedStats = null;
+  try {
+    cachedStats = JSON.parse(localStorage.getItem('opentune_track_stats_' + track.id) || 'null');
+  } catch (_) {}
+
+  if (cachedStats) {
+    applyStatsDetails(cachedStats);
+  } else {
+    if (viewsEl) viewsEl.textContent = 'Loading...';
+    if (viewsBadge) viewsBadge.textContent = '';
+    if (likesEl) likesEl.textContent = 'Loading...';
+    if (likesBadge) likesBadge.textContent = '';
+    if (dislikesEl) dislikesEl.textContent = 'Loading...';
+    if (dislikesBadge) dislikesBadge.textContent = '';
+    if (ratingEl) ratingEl.textContent = 'Loading...';
+    if (ratingBadge) ratingBadge.textContent = '';
+    if (dateEl) dateEl.textContent = 'Loading...';
+    if (descEl) descEl.textContent = 'Fetching description & metadata...';
+  }
+
+  const btnOpenYt = document.getElementById('info-open-yt-btn');
+  if (btnOpenYt) {
+    btnOpenYt.onclick = () => {
+      window.api.openExternalUrl(`https://www.youtube.com/watch?v=${track.id}`);
+    };
+  }
+  const btnCopyStats = document.getElementById('info-copy-details-btn');
+  if (btnCopyStats) {
+    btnCopyStats.onclick = () => {
+      const summaryText = `Track: ${track.title} - ${cleanArtistName(track.artist)}\nRelease: ${dateEl ? dateEl.textContent : ''}\nViews: ${viewsEl ? viewsEl.textContent : ''}\nLikes: ${likesEl ? likesEl.textContent : ''}\nRating: ${ratingEl ? ratingEl.textContent : ''}\nLink: https://www.youtube.com/watch?v=${track.id}`;
+      navigator.clipboard.writeText(summaryText)
+        .then(() => showToast('Song info & stats copied to clipboard! 📋'))
+        .catch(() => showToast('Could not copy to clipboard', 'error'));
+    };
+  }
+
+  try {
+    const details = await window.api.getTrackDetails(track.id);
+    if (!details || details.error) return;
+    applyStatsDetails(details);
+    try {
+      localStorage.setItem('opentune_track_stats_' + track.id, JSON.stringify(details));
+    } catch (_) {}
   } catch (err) {
     console.warn('Song info notice:', err.message);
-    if (descEl) descEl.textContent = 'Basic metadata loaded from active playback session.';
+    if (!cachedStats && descEl) descEl.textContent = 'Basic metadata loaded from active playback session.';
   }
 }
 
@@ -8209,19 +8282,46 @@ function updateLibraryBentoCounts() {
   } catch (_) {}
 }
 
+async function syncDownloadedOfflineLibrary() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('opentune_downloaded_tracks') || '[]');
+    if (!Array.isArray(saved) || saved.length === 0) return;
+    if (window.api?.syncOfflineTracks) {
+      const synced = await window.api.syncOfflineTracks(saved);
+      if (Array.isArray(synced) && synced.length > 0) {
+        localStorage.setItem('opentune_downloaded_tracks', JSON.stringify(synced.slice(0, 1000)));
+        if (navigator.onLine && window.api?.cacheMissingOfflineAssets) {
+          window.api.cacheMissingOfflineAssets(synced.slice(0, 50)).catch(() => {});
+        }
+      }
+    }
+  } catch (_) {}
+}
+
 function initLibraryBentoListeners() {
   document.getElementById('bento-card-liked')?.addEventListener('click', () => navigateTo('liked'));
   document.getElementById('bento-card-top50')?.addEventListener('click', () => navigateTo('stats'));
   document.getElementById('bento-card-cached')?.addEventListener('click', () => navigateTo('history'));
-  document.getElementById('bento-card-downloaded')?.addEventListener('click', () => {
+  document.getElementById('bento-card-downloaded')?.addEventListener('click', async () => {
     try {
       const saved = JSON.parse(localStorage.getItem('opentune_downloaded_tracks') || '[]');
       if (Array.isArray(saved) && saved.length > 0) {
+        let activeTracks = saved;
+        if (window.api?.syncOfflineTracks) {
+          try {
+            const synced = await window.api.syncOfflineTracks(saved);
+            if (Array.isArray(synced) && synced.length > 0) {
+              activeTracks = synced;
+              localStorage.setItem('opentune_downloaded_tracks', JSON.stringify(synced.slice(0, 1000)));
+            }
+          } catch (_) {}
+        }
+        const topCover = activeTracks.find(t => t?.localThumbnail)?.localThumbnail || activeTracks[0]?.thumbnail || 'assets/icon.png';
         openPlaylistDetail({
           id: 'downloaded-offline',
           title: 'Downloaded Offline',
-          thumbnail: saved[0]?.thumbnail || 'assets/icon.png',
-          tracks: saved
+          thumbnail: topCover,
+          tracks: activeTracks
         }, true, true);
         return;
       }
@@ -8229,6 +8329,11 @@ function initLibraryBentoListeners() {
     window.api.openDownloadFolder(settings.downloadPath || '');
   });
 }
+
+setTimeout(() => syncDownloadedOfflineLibrary(), 2500);
+window.addEventListener('online', () => {
+  setTimeout(() => syncDownloadedOfflineLibrary(), 1500);
+});
 
 // --- In-App Auto Update System (Windows & macOS) ---
 function initAppUpdaterUI() {

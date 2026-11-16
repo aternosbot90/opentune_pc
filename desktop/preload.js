@@ -31,7 +31,12 @@ contextBridge.exposeInMainWorld('api', {
   // Playback & Lyrics
   getStreamUrl: (videoId) => ipcRenderer.invoke('get-stream-url', videoId),
   preloadStream: (videoId) => ipcRenderer.invoke('preload-stream', videoId),
-  getLyrics: (title, artist, duration) => ipcRenderer.invoke('get-lyrics', { title, artist, duration }),
+  getLyrics: (title, artist, duration, trackId) => {
+    if (typeof title === 'object' && title !== null) {
+      return ipcRenderer.invoke('get-lyrics', title);
+    }
+    return ipcRenderer.invoke('get-lyrics', { title, artist, duration, trackId });
+  },
   searchLyrics: (query) => ipcRenderer.invoke('search-lyrics', query),
 
   // Auth / Login methods
@@ -59,6 +64,8 @@ contextBridge.exposeInMainWorld('api', {
   getDownloadConfig: () => ipcRenderer.invoke('get-download-config'),
   setDownloadConfig: (cfg) => ipcRenderer.invoke('set-download-config', cfg),
   chooseDownloadFolder: () => ipcRenderer.invoke('choose-download-folder'),
+  syncOfflineTracks: (tracks) => ipcRenderer.invoke('sync-offline-tracks', tracks),
+  cacheMissingOfflineAssets: (tracks) => ipcRenderer.invoke('cache-missing-offline-assets', tracks),
 
   // YouTube Music Playlist Cloud Sync
   createYtPlaylist: (payload) => ipcRenderer.invoke('create-yt-playlist', payload),

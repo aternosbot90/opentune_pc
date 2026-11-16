@@ -25,6 +25,20 @@ function parseLrc(lrcText) {
   return result.sort((a, b) => a.time - b.time);
 }
 
+function formatLrc(syncedLines) {
+  if (!Array.isArray(syncedLines) || syncedLines.length === 0) return '';
+  return syncedLines.map(line => {
+    const totalSec = Math.max(0, Number(line.time) || 0);
+    const min = Math.floor(totalSec / 60);
+    const sec = Math.floor(totalSec % 60);
+    const ms = Math.floor((totalSec % 1) * 100);
+    const mm = String(min).padStart(2, '0');
+    const ss = String(sec).padStart(2, '0');
+    const xx = String(ms).padStart(2, '0');
+    return `[${mm}:${ss}.${xx}]${line.text || ''}`;
+  }).join('\n');
+}
+
 function sanitizeArtist(artistName) {
   if (!artistName || typeof artistName !== 'string') return '';
   return artistName
@@ -146,6 +160,7 @@ async function searchLyrics(query) {
 module.exports = {
   getLyrics,
   searchLyrics,
-  parseLrc
+  parseLrc,
+  formatLrc
 };
 
