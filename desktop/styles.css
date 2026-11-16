@@ -165,6 +165,17 @@ body.light-theme .nav-item,
 body.light-theme .track-row td {
   color: var(--text-primary);
 }
+body.light-theme .btn-subtle {
+  background: rgba(15, 20, 40, 0.05) !important;
+  border: 1px solid rgba(15, 20, 40, 0.14) !important;
+  color: #131620 !important;
+  box-shadow: 0 1px 3px rgba(15, 20, 40, 0.04) !important;
+}
+body.light-theme .btn-subtle:hover {
+  background: rgba(15, 20, 40, 0.1) !important;
+  border-color: rgba(15, 20, 40, 0.24) !important;
+  color: #0d0f14 !important;
+}
 body.light-theme .player-bar,
 body.light-theme .titlebar,
 body.light-theme .sidebar {
@@ -177,18 +188,27 @@ body.light-theme ::-webkit-scrollbar-thumb:hover {
   background: rgba(15, 20, 40, 0.38);
 }
 body.light-theme .chip,
-body.light-theme .aod-check-pill {
-  background: rgba(15, 20, 40, 0.05);
-  color: var(--text-primary);
-  border-color: rgba(15, 20, 40, 0.12);
+body.light-theme .aod-check-pill,
+body.light-theme .settings-cat-chips .chip {
+  background: rgba(15, 20, 40, 0.05) !important;
+  color: #383f54 !important;
+  border: 1px solid rgba(15, 20, 40, 0.12) !important;
+  box-shadow: 0 1px 3px rgba(15, 20, 40, 0.03) !important;
 }
-body.light-theme .chip:hover {
-  background: rgba(15, 20, 40, 0.1);
+body.light-theme .chip:hover,
+body.light-theme .aod-check-pill:hover,
+body.light-theme .settings-cat-chips .chip:hover {
+  background: rgba(15, 20, 40, 0.1) !important;
+  color: #131620 !important;
+  border-color: rgba(15, 20, 40, 0.22) !important;
 }
-body.light-theme .chip.active {
-  background: var(--accent);
+body.light-theme .chip.active,
+body.light-theme .aod-check-pill.active,
+body.light-theme .settings-cat-chips .chip.active {
+  background: var(--accent) !important;
   color: #ffffff !important;
-  border-color: transparent;
+  border-color: var(--accent) !important;
+  box-shadow: 0 3px 12px var(--accent-glow) !important;
 }
 body.light-theme .queue-toolbar,
 body.light-theme .search-input-wrapper,
@@ -200,16 +220,28 @@ body.light-theme .progress-track,
 body.light-theme .volume-track {
   background: rgba(15, 20, 40, 0.14);
 }
-body.light-theme .ctrl-btn,
+body.light-theme .ctrl-btn:not(.play-pause),
 body.light-theme .nav-btn,
-body.light-theme .header-action-btn {
-  color: var(--text-secondary);
+body.light-theme .header-action-btn,
+body.light-theme .player-bar .ctrl-btn:not(.play-pause) {
+  background: transparent !important;
+  border: none !important;
+  color: #383f54 !important;
+  box-shadow: none !important;
 }
-body.light-theme .ctrl-btn:hover,
+body.light-theme .ctrl-btn:not(.play-pause):hover,
 body.light-theme .nav-btn:hover,
-body.light-theme .header-action-btn:hover {
-  color: var(--text-primary);
-  background: rgba(15, 20, 40, 0.07);
+body.light-theme .header-action-btn:hover,
+body.light-theme .player-bar .ctrl-btn:not(.play-pause):hover {
+  color: #121418 !important;
+  background: rgba(15, 20, 40, 0.08) !important;
+}
+body.light-theme .ctrl-btn.play-pause,
+body.light-theme .player-bar .ctrl-btn.play-pause {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 18px var(--accent-glow) !important;
+  border: none !important;
 }
 body.light-theme .bento-coral { background: rgba(217, 56, 72, 0.14); color: #b91c2c; }
 body.light-theme .bento-pink { background: rgba(219, 39, 119, 0.14); color: #9d174d; }
@@ -5986,16 +6018,27 @@ body[data-ui-theme="skeuomorphism"]:not(.light-theme) .library-bento-card {
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 6px 6px 16px rgba(0, 0, 0, 0.5), -4px -4px 10px rgba(255, 255, 255, 0.04);
 }
-body[data-ui-theme="skeuomorphism"]:not(.light-theme) .ctrl-btn,
-body[data-ui-theme="skeuomorphism"]:not(.light-theme) .chip,
+body[data-ui-theme="skeuomorphism"]:not(.light-theme) .ctrl-btn:not(.play-pause),
+body[data-ui-theme="skeuomorphism"]:not(.light-theme) .chip:not(.active),
 body[data-ui-theme="skeuomorphism"]:not(.light-theme) .btn-subtle {
   background: linear-gradient(145deg, #1c1f2a, #14161f);
   box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.5), -2px -2px 6px rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
 }
-body[data-ui-theme="skeuomorphism"]:not(.light-theme) .ctrl-btn:active,
-body[data-ui-theme="skeuomorphism"]:not(.light-theme) .chip.active {
+body[data-ui-theme="skeuomorphism"]:not(.light-theme) .ctrl-btn:not(.play-pause):active {
   box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.6), inset -2px -2px 4px rgba(255, 255, 255, 0.06) !important;
+}
+body[data-ui-theme="skeuomorphism"] .ctrl-btn.play-pause {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 18px var(--accent-glow) !important;
+}
+body[data-ui-theme="skeuomorphism"] .chip.active {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 3px 12px var(--accent-glow) !important;
 }
 
 /* Light Skeuomorphism (Soft Tactile Neumorphism) */
@@ -6014,17 +6057,22 @@ body.light-theme[data-ui-theme="skeuomorphism"] .library-bento-card {
   box-shadow: 6px 6px 14px rgba(166, 175, 195, 0.5), -5px -5px 12px #ffffff !important;
   color: #131620 !important;
 }
-body.light-theme[data-ui-theme="skeuomorphism"] .ctrl-btn,
-body.light-theme[data-ui-theme="skeuomorphism"] .chip,
+body.light-theme[data-ui-theme="skeuomorphism"] .ctrl-btn:not(.play-pause),
+body.light-theme[data-ui-theme="skeuomorphism"] .chip:not(.active),
+body.light-theme[data-ui-theme="skeuomorphism"] .settings-cat-chips .chip:not(.active),
 body.light-theme[data-ui-theme="skeuomorphism"] .btn-subtle {
   background: linear-gradient(145deg, #ffffff, #e4e9f0) !important;
   box-shadow: 3px 3px 7px rgba(166, 175, 195, 0.45), -2px -2px 6px #ffffff !important;
   border: 1px solid rgba(255, 255, 255, 0.7) !important;
   color: #131620 !important;
 }
-body.light-theme[data-ui-theme="skeuomorphism"] .ctrl-btn:active,
-body.light-theme[data-ui-theme="skeuomorphism"] .chip.active {
+body.light-theme[data-ui-theme="skeuomorphism"] .ctrl-btn:not(.play-pause):active {
   box-shadow: inset 3px 3px 6px rgba(166, 175, 195, 0.5), inset -2px -2px 5px #ffffff !important;
+}
+body.light-theme[data-ui-theme="skeuomorphism"] .ctrl-btn.play-pause {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 18px var(--accent-glow) !important;
 }
 
 /* 5. Cyberpunk Neon */
