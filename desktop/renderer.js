@@ -49,11 +49,29 @@ function upgradeCover(url, size = 544) {
   }
 
   if (clean.includes('i.ytimg.com')) {
-    clean = clean.replace(/\/(default|mqdefault)\.jpg/, '/hqdefault.jpg');
+    if (size >= 500) {
+      clean = clean.replace(/\/(default|mqdefault|hqdefault|sddefault)\.jpg/, '/maxresdefault.jpg');
+    } else {
+      clean = clean.replace(/\/(default|mqdefault)\.jpg/, '/hqdefault.jpg');
+    }
     return clean;
   }
 
   return clean;
+}
+
+function handleCoverError(img) {
+  if (!img || !img.src) return;
+  const src = img.src;
+  if (src.includes('maxresdefault.jpg')) {
+    img.src = src.replace('maxresdefault.jpg', 'hq720.jpg');
+  } else if (src.includes('hq720.jpg')) {
+    img.src = src.replace('hq720.jpg', 'sddefault.jpg');
+  } else if (src.includes('sddefault.jpg')) {
+    img.src = src.replace('sddefault.jpg', 'hqdefault.jpg');
+  } else if (!src.includes('assets/icon.png')) {
+    img.src = 'assets/icon.png';
+  }
 }
 
 const state = {
@@ -745,6 +763,7 @@ function syncPlayerTrackMetadataUI(track) {
   if (thumbEl) {
     const thumbSrc = upgradeCover(track.thumbnail, 800);
     thumbEl.src = thumbSrc;
+    thumbEl.onerror = () => handleCoverError(thumbEl);
     thumbEl.classList.toggle('yt-crop-letterbox', /i\.ytimg\.com\/vi\/[^/]+\/(hqdefault|sddefault|0)\.jpg/i.test(thumbSrc));
   }
   if (titleEl) titleEl.textContent = track.title || 'Unknown Title';
@@ -987,14 +1006,39 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
   renderQueue();
   savePersistentQueue();
 
-  // Background fetch stats (views, likes, rating) to enrich Now Playing & track rows
+  // Background fetch stats (views, likes, rating) & high-res official album cover to enrich Now Playing & track rows
   (async () => {
     try {
-      const details = await window.api.getTrackDetails(track.id);
+      const details = await window.api.getTrackDetails(track.id, {
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        thumbnail: track.thumbnail
+      });
       if (details && !details.error && state.currentTrack?.id === track.id) {
         try {
           localStorage.setItem('opentune_track_stats_' + track.id, JSON.stringify(details));
         } catch (_) {}
+
+        if (details.albumCover && (!track.thumbnail || !track.thumbnail.includes('googleusercontent.com') || details.albumCover !== track.thumbnail)) {
+          track.thumbnail = details.albumCover;
+          if (track.localThumbnail) track.localThumbnail = details.albumCover;
+          const coverImg = document.getElementById('np-cover-img');
+          if (coverImg) {
+            coverImg.classList.add('art-switching');
+            setTimeout(() => {
+              coverImg.src = upgradeCover(details.albumCover, 1200);
+              coverImg.classList.remove('art-switching');
+            }, 100);
+          }
+          const pThumb = document.getElementById('player-thumb');
+          if (pThumb) pThumb.src = upgradeCover(details.albumCover, 800);
+          const ambientBg = document.getElementById('np-ambient-bg');
+          if (ambientBg) ambientBg.style.backgroundImage = `url("${upgradeCover(details.albumCover, 1200)}")`;
+          const rowThumb = document.querySelector(`.track-row[data-track-id="${track.id}"] .track-thumb`);
+          if (rowThumb) rowThumb.src = upgradeCover(details.albumCover, 544);
+        }
+
         syncNowPlayingUI();
         syncPlayerTrackMetadataUI(track);
         const row = document.querySelector(`.track-row[data-track-id="${track.id}"]`);
@@ -6290,9 +6334,10 @@ function syncNowPlayingUI() {
   const trackYear = document.getElementById('np-track-year');
   const trackDurationPill = document.getElementById('np-track-duration-pill');
 
-  const hiResThumb = upgradeCover(track.thumbnail, 800);
+  const hiResThumb = upgradeCover(track.thumbnail, 1200);
   const needsYtCrop = /i\.ytimg\.com\/vi\/[^/]+\/(hqdefault|sddefault|0)\.jpg/i.test(hiResThumb);
   if (coverImg) {
+    coverImg.onerror = () => handleCoverError(coverImg);
     coverImg.classList.toggle('yt-crop-letterbox', needsYtCrop);
     if (track.id && track.id !== lastNpTrackId) {
       lastNpTrackId = track.id;
@@ -6712,8 +6757,16 @@ async function openSongInfoModal(targetTrack = null) {
   }
 
   try {
-    const details = await window.api.getTrackDetails(track.id);
+    const details = await window.api.getTrackDetails(track.id, {
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      thumbnail: track.thumbnail
+    });
     if (!details || details.error) return;
+    if (details.albumCover && coverEl) {
+      coverEl.src = upgradeCover(details.albumCover, 400);
+    }
     applyStatsDetails(details);
     try {
       localStorage.setItem('opentune_track_stats_' + track.id, JSON.stringify(details));

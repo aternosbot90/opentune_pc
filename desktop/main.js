@@ -432,9 +432,9 @@ ipcMain.handle('get-artist', async (_event, artistId) => {
   }
 });
 
-ipcMain.handle('get-track-details', async (_event, videoId) => {
+ipcMain.handle('get-track-details', async (_event, videoId, meta = {}) => {
   try {
-    return await ytMusic.getTrackDetails(videoId);
+    return await ytMusic.getTrackDetails(videoId, meta);
   } catch (err) {
     console.warn('Track details online fetch notice, checking offline metadata:', err.message);
     if (typeof getOfflineAssetDirs === 'function') {

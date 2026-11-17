@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld('api', {
   getPlaylist: (playlistId) => ipcRenderer.invoke('get-playlist', playlistId),
   getArtist: (artistId) => ipcRenderer.invoke('get-artist', artistId),
   getLibrary: () => ipcRenderer.invoke('get-library'),
-  getTrackDetails: (videoId) => ipcRenderer.invoke('get-track-details', videoId),
+  getTrackDetails: (videoId, meta = {}) => ipcRenderer.invoke('get-track-details', videoId, meta),
   getTrackComments: (videoId) => ipcRenderer.invoke('get-track-comments', videoId),
   postTrackComment: (videoId, text) => ipcRenderer.invoke('post-track-comment', { videoId, text }),
 

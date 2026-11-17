@@ -3225,9 +3225,10 @@ body[data-slider-style="simple"] .progress-thumb {
 }
 
 .np-cover-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center center !important;
   display: block;
 }
 
@@ -5401,17 +5402,20 @@ body.hide-player-thumb #np-cover-container {
   border-radius: var(--art-radius, 16px) !important;
 }
 
-body.no-crop-thumbs .np-cover-img,
-body.no-crop-thumbs .player-thumb {
+body.no-crop-thumbs .track-thumb,
+body.no-crop-thumbs .card-img {
   object-fit: contain !important;
   transform: none !important;
 }
 
+.np-cover-img,
+.player-thumb,
 body:not(.no-crop-thumbs) .np-cover-img,
 body:not(.no-crop-thumbs) .player-thumb,
 body:not(.no-crop-thumbs) .track-thumb,
 body:not(.no-crop-thumbs) .card-img {
   object-fit: cover !important;
+  object-position: center center !important;
 }
 
 /* Lyrics Typography Driven Live By Settings */

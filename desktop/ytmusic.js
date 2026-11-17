@@ -268,12 +268,23 @@ function upgradeThumbnail(url, size = 544) {
     clean = clean
       .replace(/=w\d+-h\d+[^?#]*/, `=w${size}-h${size}-l90-rj`)
       .replace(/=s\d+[^?#]*/, `=s${size}-c`);
+    if (!clean.includes(`=w${size}`) && !clean.includes(`=s${size}`)) {
+      if (clean.includes('=')) {
+        clean = clean.split('=')[0] + `=w${size}-h${size}-l90-rj`;
+      } else {
+        clean += `=w${size}-h${size}-l90-rj`;
+      }
+    }
     return clean;
   }
 
   // YouTube video thumbnails
   if (clean.includes('i.ytimg.com')) {
-    clean = clean.replace(/\/(default|mqdefault)\.jpg/, '/hqdefault.jpg');
+    if (size >= 500) {
+      clean = clean.replace(/\/(default|mqdefault|hqdefault|sddefault)\.jpg/, '/maxresdefault.jpg');
+    } else {
+      clean = clean.replace(/\/(default|mqdefault)\.jpg/, '/hqdefault.jpg');
+    }
     return clean;
   }
 
@@ -2055,11 +2066,12 @@ async function getExploreData() {
   }
 }
 
-// Track Details (Release Date, Views, Likes, Dislikes, Description)
-async function getTrackDetails(videoId) {
+// Track Details (Release Date, Views, Likes, Dislikes, Description, High-Res Album Cover)
+async function getTrackDetails(videoId, meta = {}) {
   if (!videoId) throw new Error('Video ID is required');
   let basic = null;
   let dislikeData = null;
+  let albumCover = null;
 
   try {
     basic = await executeMusicAction(async (yt) => {
@@ -2077,6 +2089,34 @@ async function getTrackDetails(videoId) {
     });
   } catch (err) {
     console.warn('getBasicInfo notice:', err.message);
+  }
+
+  // 1. If meta already provides an official Google CDN square cover, upgrade to 1200
+  if (meta.thumbnail && (meta.thumbnail.includes('googleusercontent.com') || meta.thumbnail.includes('ggpht.com'))) {
+    albumCover = upgradeThumbnail(meta.thumbnail, 1200);
+  } else {
+    // 2. Search YouTube Music for the official song release to extract pure 1:1 square artwork
+    try {
+      const qTitle = meta.title || basic?.title || '';
+      const qArtist = meta.artist || basic?.author || '';
+      if (qTitle) {
+        const query = (qTitle + ' ' + (qArtist || '')).trim();
+        const songResults = await search(query, 'song');
+        const match = (songResults || []).find(r => r.thumbnail && (r.thumbnail.includes('googleusercontent.com') || r.thumbnail.includes('ggpht.com'))) || songResults?.[0];
+        if (match?.thumbnail) {
+          albumCover = upgradeThumbnail(match.thumbnail, 1200);
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 3. Fallback to upgraded thumbnail if no official square cover found
+  if (!albumCover) {
+    if (meta.thumbnail) {
+      albumCover = upgradeThumbnail(meta.thumbnail, 1200);
+    } else if (videoId) {
+      albumCover = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+    }
   }
 
   try {
@@ -2101,7 +2141,8 @@ async function getTrackDetails(videoId) {
     rating: dislikeData?.rating ? Number(dislikeData.rating.toFixed(2)) : null,
     uploadDate: basic?.uploadDate || dislikeData?.dateCreated || '',
     description: basic?.description || '',
-    keywords: basic?.keywords || []
+    keywords: basic?.keywords || [],
+    albumCover: albumCover || null
   };
 }
 
