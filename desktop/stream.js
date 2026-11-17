@@ -256,7 +256,6 @@ async function extractStreamUrlWithFormat(videoId, formatSelector = 'bestaudio/b
       const args = [
         '-g',
         '-f', effectiveFormat,
-        '--extractor-args', 'youtube:player-client=android,web',
         '--no-playlist',
         '--no-warnings',
         '--no-check-certificates',

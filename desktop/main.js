@@ -894,7 +894,6 @@ async function downloadTrackAudioFile(track, destDir, baseName) {
       const outTemplate = path.join(destDir, `${baseName}.%(ext)s`);
       const args = [
         '-f', 'bestaudio[ext=m4a]/bestaudio/best',
-        '--extractor-args', 'youtube:player-client=android,web',
         '--no-playlist',
         '--no-part',
         '--no-warnings',
