@@ -285,6 +285,15 @@ function formatTime(seconds) {
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
+function formatCompactNumber(num) {
+  const n = Number(num);
+  if (isNaN(n) || n === 0) return num || '--';
+  if (n >= 1e9) return (n / 1e9).toFixed(1).replace(/\.0$/, '') + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+  return n.toLocaleString();
+}
+
 function parseDurationToSeconds(dur) {
   if (!dur) return 180;
   const parts = dur.split(':').map(Number);
@@ -761,6 +770,28 @@ function syncPlayerTrackMetadataUI(track) {
       albumEl.onclick = null;
     }
   }
+
+  const statBadge = document.getElementById('player-stat-badge');
+  if (statBadge) {
+    let cachedStats = null;
+    try {
+      cachedStats = JSON.parse(localStorage.getItem('opentune_track_stats_' + track.id) || 'null');
+    } catch (_) {}
+    const rawV = track.views || track.plays || cachedStats?.views;
+    if (rawV) {
+      const vText = typeof rawV === 'number' ? formatCompactNumber(rawV) : String(rawV).replace(/\s*(?:views?|plays?)/i, '');
+      statBadge.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px; margin-right:3px;"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>${vText}`;
+      statBadge.style.display = 'inline-flex';
+      statBadge.title = typeof rawV === 'number' ? `${Number(rawV).toLocaleString()} views` : String(rawV);
+      statBadge.onclick = (e) => {
+        e.stopPropagation();
+        openSongInfoModal(track);
+      };
+    } else {
+      statBadge.style.display = 'none';
+      statBadge.onclick = null;
+    }
+  }
 }
 
 const sessionDownloadedIds = new Set();
@@ -955,6 +986,32 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
   syncNowPlayingUI();
   renderQueue();
   savePersistentQueue();
+
+  // Background fetch stats (views, likes, rating) to enrich Now Playing & track rows
+  (async () => {
+    try {
+      const details = await window.api.getTrackDetails(track.id);
+      if (details && !details.error && state.currentTrack?.id === track.id) {
+        try {
+          localStorage.setItem('opentune_track_stats_' + track.id, JSON.stringify(details));
+        } catch (_) {}
+        syncNowPlayingUI();
+        syncPlayerTrackMetadataUI(track);
+        const row = document.querySelector(`.track-row[data-track-id="${track.id}"]`);
+        if (row) {
+          const statsPills = row.querySelector('.track-stats-pills');
+          const views = details.views ? formatCompactNumber(details.views) + ' views' : '';
+          const likes = details.likes ? formatCompactNumber(details.likes) + ' likes' : '';
+          if (statsPills && (views || likes)) {
+            let html = '';
+            if (views) html += `<span class="track-stat-pill track-stat-views" title="Total Plays / Views: ${escapeHtmlSafe(views)}"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg><span>${escapeHtmlSafe(views)}</span></span>`;
+            if (likes) html += `<span class="track-stat-pill track-stat-likes" title="Total Likes: ${escapeHtmlSafe(likes)}"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg><span>${escapeHtmlSafe(likes)}</span></span>`;
+            statsPills.innerHTML = html;
+          }
+        }
+      }
+    } catch (_) {}
+  })();
 
   // Reset & immediately fetch lyrics in parallel (never leave previous song lyrics lingering)
   state.currentLyrics = [];
@@ -2738,6 +2795,14 @@ function renderNowPlayingQueue() {
       `
       : '';
 
+    let qStats = null;
+    try {
+      qStats = JSON.parse(localStorage.getItem('opentune_track_stats_' + track.id) || 'null');
+    } catch (_) {}
+    const qViews = track.views || track.plays || qStats?.views;
+    const qViewsText = qViews ? (typeof qViews === 'number' ? formatCompactNumber(qViews) : String(qViews).replace(/\s*(?:views?|plays?)/i, '')) : '';
+    const qViewsHtml = qViewsText ? `<span class="track-stat-pill track-stat-views" style="font-size:0.68rem;padding:1px 5px;" title="${escapeHtmlSafe(String(qViews))}"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg><span>${escapeHtmlSafe(qViewsText)}</span></span>` : '';
+
     row.innerHTML = `
       <span class="np-queue-num">${numInner}</span>
       <img class="np-queue-thumb" src="${upgradeCover(track.thumbnail, 256)}" loading="lazy">
@@ -2746,7 +2811,10 @@ function renderNowPlayingQueue() {
           <span class="np-queue-title">${track.title || 'Unknown'}</span>
           ${isPriorityNext ? '<span class="queue-next-pill">Next</span>' : ''}
         </div>
-        <span class="np-queue-artist">${cleanArtistName(track.artist) || 'Unknown Artist'}</span>
+        <div style="display:flex;align-items:center;gap:6px;min-width:0;">
+          <span class="np-queue-artist">${cleanArtistName(track.artist) || 'Unknown Artist'}</span>
+          ${qViewsHtml}
+        </div>
       </div>
       <span class="np-queue-dur">${track.duration || ''}</span>
       ${actionsHtml}
@@ -4131,7 +4199,7 @@ document.getElementById('btn-back-from-artist')?.addEventListener('click', () =>
   }
 });
 
-// Track Row Component with Clickable Artist & Album Links, Like, and Viewport-Safe Context Menu
+// Track Row Component with Clickable Artist & Album Links, Like, Views & Likes Badges, and Viewport-Safe Context Menu
 function createTrackRow(track, number, playlistQueue) {
   const tr = document.createElement('tr');
   tr.dataset.trackId = track.id;
@@ -4139,19 +4207,63 @@ function createTrackRow(track, number, playlistQueue) {
   const isLiked = state.likedSongs.has(track.id);
   const isDownloaded = typeof sessionDownloadedIds !== 'undefined' && sessionDownloadedIds.has(track.id);
 
+  let cachedStats = null;
+  try {
+    cachedStats = JSON.parse(localStorage.getItem('opentune_track_stats_' + track.id) || 'null');
+  } catch (_) {}
+
+  const rawViews = track.views || track.plays || cachedStats?.views;
+  const rawLikes = track.likes || cachedStats?.likes;
+
+  let viewsText = '';
+  if (rawViews) {
+    if (typeof rawViews === 'number') {
+      viewsText = formatCompactNumber(rawViews) + ' views';
+    } else {
+      const s = String(rawViews).trim();
+      viewsText = /(?:plays?|views?)$/i.test(s) ? s : (formatCompactNumber(s) || s) + ' views';
+    }
+  }
+
+  let likesText = '';
+  if (rawLikes) {
+    if (typeof rawLikes === 'number') {
+      likesText = formatCompactNumber(rawLikes) + ' likes';
+    } else {
+      const s = String(rawLikes).trim();
+      likesText = /likes?$/i.test(s) ? s : (formatCompactNumber(s) || s) + ' likes';
+    }
+  }
+
+  let statPillsHtml = '';
+  if (viewsText) {
+    statPillsHtml += `<span class="track-stat-pill track-stat-views" title="Total Plays / Views: ${escapeHtmlSafe(viewsText)}"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg><span>${escapeHtmlSafe(viewsText)}</span></span>`;
+  }
+  if (likesText) {
+    statPillsHtml += `<span class="track-stat-pill track-stat-likes" title="Total Likes: ${escapeHtmlSafe(likesText)}"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg><span>${escapeHtmlSafe(likesText)}</span></span>`;
+  }
+
   const albumText = track.album || '';
-  const albumHtml = albumText
-    ? `<span class="clickable-album-link">${escapeHtmlSafe(albumText)}</span>`
-    : `<span style="color:var(--text-muted); opacity:0.55;">Single</span>`;
+  let albumHtml = '';
+  if (albumText) {
+    albumHtml = `<span class="clickable-album-link">${escapeHtmlSafe(albumText)}</span>`;
+  } else if (viewsText) {
+    albumHtml = `<span class="track-album-plays" title="Total Plays / Views: ${escapeHtmlSafe(viewsText)}"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: -1px; margin-right: 4px; opacity: 0.8;"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>${escapeHtmlSafe(viewsText)}</span>`;
+  } else {
+    albumHtml = `<span style="color:var(--text-muted); opacity:0.55;">Single</span>`;
+  }
   const thumbSrc = upgradeCover(track.localThumbnail || track.thumbnail, 544);
 
   tr.innerHTML = `
     <td class="track-col-num">${number}</td>
     <td class="track-col-title">
-      <img class="track-thumb" src="${thumbSrc}" loading="lazy" onerror="this.onerror=null;this.src='assets/icon.png';" title="${track.album ? 'Open album: ' + track.album : ''}">
+      <img class="track-thumb" src="${thumbSrc}" loading="lazy" onerror="this.onerror=null;this.src='assets/icon.png';" title="${track.album ? 'Open album: ' + escapeHtmlSafe(track.album) : ''}">
       <div class="track-info">
-        <span class="track-name">${track.title}</span>
-        <span class="track-artist">${renderArtistLinksHtml(track)}</span>
+        <span class="track-name">${escapeHtmlSafe(track.title)}</span>
+        <div class="track-artist-row">
+          <span class="track-artist">${renderArtistLinksHtml(track)}</span>
+          <div class="track-stats-pills">${statPillsHtml}</div>
+        </div>
       </div>
     </td>
     <td class="track-col-album">${albumHtml}</td>
@@ -4166,6 +4278,14 @@ function createTrackRow(track, number, playlistQueue) {
       </button>
     </td>
   `;
+
+  tr.querySelectorAll('.track-stat-pill').forEach(pill => {
+    pill.style.cursor = 'pointer';
+    pill.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openSongInfoModal(track);
+    });
+  });
 
   bindArtistLinksInContainer(tr, track);
 
@@ -6237,7 +6357,46 @@ function syncNowPlayingUI() {
   if (formatPill) {
     const qualMap = { high: 'M4A • 256 kbps', standard: 'OPUS • 160 kbps', low: 'AAC • 64 kbps' };
     formatPill.textContent = qualMap[settings.audioQuality] || 'OPUS • 160 kbps';
-    formatPill.onclick = () => openSongInfoModal();
+    formatPill.onclick = () => openSongInfoModal(track);
+  }
+
+  const npViewsBadge = document.getElementById('np-track-views-badge');
+  const npViewsText = document.getElementById('np-track-views-text');
+  const npLikesBadge = document.getElementById('np-track-likes-badge');
+  const npLikesText = document.getElementById('np-track-likes-text');
+
+  let cachedStats = null;
+  try {
+    cachedStats = JSON.parse(localStorage.getItem('opentune_track_stats_' + track.id) || 'null');
+  } catch (_) {}
+
+  const currentViews = track.views || track.plays || cachedStats?.views;
+  const currentLikes = track.likes || cachedStats?.likes;
+
+  if (npViewsBadge && npViewsText) {
+    if (currentViews) {
+      const vStr = typeof currentViews === 'number' ? formatCompactNumber(currentViews) + ' views' : String(currentViews);
+      npViewsText.textContent = vStr;
+      npViewsBadge.style.display = 'inline-flex';
+      npViewsBadge.title = `Total Views / Plays: ${typeof currentViews === 'number' ? Number(currentViews).toLocaleString() : currentViews}`;
+      npViewsBadge.onclick = () => openSongInfoModal(track);
+    } else {
+      npViewsBadge.style.display = 'none';
+      npViewsBadge.onclick = null;
+    }
+  }
+
+  if (npLikesBadge && npLikesText) {
+    if (currentLikes) {
+      const lStr = typeof currentLikes === 'number' ? formatCompactNumber(currentLikes) + ' likes' : String(currentLikes);
+      npLikesText.textContent = lStr;
+      npLikesBadge.style.display = 'inline-flex';
+      npLikesBadge.title = `Total Likes: ${typeof currentLikes === 'number' ? Number(currentLikes).toLocaleString() : currentLikes}`;
+      npLikesBadge.onclick = () => openSongInfoModal(track);
+    } else {
+      npLikesBadge.style.display = 'none';
+      npLikesBadge.onclick = null;
+    }
   }
 
   if (isVideoMode && track.id) {
@@ -6436,12 +6595,12 @@ function formatCompactNumber(num) {
   return n.toLocaleString();
 }
 
-async function openSongInfoModal() {
-  if (!state.currentTrack?.id) {
+async function openSongInfoModal(targetTrack = null) {
+  const track = (targetTrack && targetTrack.id) ? targetTrack : state.currentTrack;
+  if (!track?.id) {
     showToast('Select a song to view stats & info');
     return;
   }
-  const track = state.currentTrack;
   if (songInfoModal) songInfoModal.style.display = 'flex';
 
   const titleEl = document.getElementById('info-track-title');

@@ -1584,6 +1584,100 @@ td.track-col-title {
   text-overflow: ellipsis;
 }
 
+.track-artist-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.track-stats-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.track-stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3.5px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.track-stat-pill svg {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.track-stat-views {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.22);
+}
+
+.track-stat-likes {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.22);
+}
+
+.track-row:hover .track-stat-views {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.track-row:hover .track-stat-likes {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.track-album-plays {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.track-album-plays svg {
+  color: #60a5fa;
+}
+
+.player-stat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3.5px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1;
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  padding: 2px 7px;
+  border-radius: 999px;
+  cursor: pointer;
+  margin-left: 6px;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.player-stat-badge:hover {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #93c5fd;
+}
+
 .track-col-album {
   width: 20%;
   min-width: 80px;
@@ -3741,6 +3835,28 @@ button .spinner,
   background: rgba(255, 255, 255, 0.15);
   border-color: var(--accent);
   color: #fff;
+}
+
+.meta-pill-views {
+  color: #93c5fd !important;
+  background: rgba(59, 130, 246, 0.14) !important;
+  border-color: rgba(59, 130, 246, 0.28) !important;
+}
+
+.meta-pill-views:hover {
+  background: rgba(59, 130, 246, 0.24) !important;
+  border-color: #60a5fa !important;
+}
+
+.meta-pill-likes {
+  color: #a7f3d0 !important;
+  background: rgba(16, 185, 129, 0.14) !important;
+  border-color: rgba(16, 185, 129, 0.28) !important;
+}
+
+.meta-pill-likes:hover {
+  background: rgba(16, 185, 129, 0.24) !important;
+  border-color: #34d399 !important;
 }
 
 /* Artist Hero & Bio */

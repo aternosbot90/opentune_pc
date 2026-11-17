@@ -434,6 +434,17 @@ function formatSongItem(item, defaultAlbum = '') {
 
   const thumbnail = extractThumbnailUrl(item, id);
 
+  let views = item.views?.text || (typeof item.views === 'string' ? item.views : '') || item.view_count || '';
+  if (!views && Array.isArray(item.flex_columns)) {
+    for (const fc of item.flex_columns) {
+      const txt = fc?.title?.text || '';
+      if (/(?:views?|plays?)\b/i.test(txt)) {
+        views = txt.trim();
+        break;
+      }
+    }
+  }
+
   return {
     id,
     title,
@@ -445,6 +456,7 @@ function formatSongItem(item, defaultAlbum = '') {
     albumId: albumId || undefined,
     year: year || undefined,
     duration,
+    views: views || undefined,
     thumbnail
   };
 }

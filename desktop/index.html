@@ -320,7 +320,7 @@
                   <tr>
                     <th class="track-col-num">#</th>
                     <th class="track-col-title">Title</th>
-                    <th class="track-col-album">Album</th>
+                    <th class="track-col-album">Album / Plays</th>
                     <th class="track-col-duration">Time</th>
                     <th class="track-col-actions"></th>
                   </tr>
@@ -355,7 +355,7 @@
                 <tr>
                   <th class="track-col-num">#</th>
                   <th class="track-col-title">Title</th>
-                  <th class="track-col-album">Album</th>
+                  <th class="track-col-album">Album / Plays</th>
                   <th class="track-col-duration">Time</th>
                   <th class="track-col-actions"></th>
                 </tr>
@@ -689,7 +689,7 @@
                 <tr>
                   <th class="track-col-num">#</th>
                   <th class="track-col-title">Title</th>
-                  <th class="track-col-album">Album</th>
+                  <th class="track-col-album">Album / Plays</th>
                   <th class="track-col-duration">Time</th>
                   <th class="track-col-actions"></th>
                 </tr>
@@ -1773,6 +1773,7 @@
             <span id="player-artist" class="player-artist clickable-meta-link">Ready to play</span>
             <span id="player-meta-sep" class="player-meta-sep" style="display: none;">&bull;</span>
             <span id="player-album" class="player-album clickable-meta-link" style="display: none;"></span>
+            <span id="player-stat-badge" class="player-stat-badge" style="display: none;" title="Song Views & Likes"></span>
           </div>
         </div>
         <button id="player-like-btn" class="player-like-btn" title="Like">
@@ -2318,6 +2319,14 @@
                 <span id="np-track-year" class="meta-pill" style="display: none;"></span>
                 <span id="np-track-duration-pill" class="meta-pill" style="display: none;"></span>
                 <button id="np-track-format-pill" class="meta-pill meta-pill-btn clickable-meta-link" type="button" title="View Likes, Dislikes, Rating & Song Info">OPUS • 160 kbps</button>
+                <button id="np-track-views-badge" class="meta-pill meta-pill-btn meta-pill-stat meta-pill-views" type="button" style="display: none;" title="Total Views / Plays">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                  <span id="np-track-views-text"></span>
+                </button>
+                <button id="np-track-likes-badge" class="meta-pill meta-pill-btn meta-pill-stat meta-pill-likes" type="button" style="display: none;" title="Total Likes">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
+                  <span id="np-track-likes-text"></span>
+                </button>
               </div>
             </div>
             <div class="np-quick-icon-actions">
