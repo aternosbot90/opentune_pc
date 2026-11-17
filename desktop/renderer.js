@@ -974,7 +974,23 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
 
   fetchLyrics(track);
 
-  // If currently in Video mode, route playback to video frame and silence audio element
+  // Default playback to Song/Audio mode so all tracks play natively with audio, artwork, waveforms & lyrics
+  if (isVideoMode && !options?.preserveVideoMode) {
+    isVideoMode = false;
+    const songBtn = document.getElementById('np-mode-song-btn');
+    const videoBtn = document.getElementById('np-mode-video-btn');
+    const coverCont = document.getElementById('np-cover-container');
+    const videoCont = document.getElementById('np-video-container');
+    const videoFrame = document.getElementById('np-video-frame');
+    songBtn?.classList.add('active');
+    videoBtn?.classList.remove('active');
+    if (videoCont) videoCont.style.display = 'none';
+    if (coverCont) coverCont.style.display = 'block';
+    if (videoFrame) videoFrame.src = '';
+    stopVideoPlaybackTicker();
+  }
+
+  // If explicitly requested to remain in Video mode (options.preserveVideoMode), route playback to video frame
   if (isVideoMode) {
     try {
       audio.pause();
@@ -1159,36 +1175,40 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
         } catch (_) {}
       }
     } else {
-      console.warn(`Direct audio stream restricted for "${track.title}". Switching to video player fallback...`);
-      showToast(`Protected song. Playing via Video Player 🎬`, 'info', 3000);
-      setSongVideoMode('video');
+      console.warn(`Could not load direct stream for "${track.title}":`, res?.error);
+      state.isPlaying = false;
+      updatePlayPauseUI();
+      showToast(`Could not load audio for "${track.title}"`, 'error');
+      if (settings.autoSkipOnError !== false && state.queue.length > 1) {
+        setTimeout(() => { if (!state.isPlaying) btnNext?.click(); }, 1200);
+      }
       return;
     }
   } catch (err) {
     if (requestToken !== state.playRequestToken || isVideoMode) return;
-    console.warn(`Playback error for "${track.title}". Switching to video player fallback:`, err.message);
-    showToast(`Protected song. Playing via Video Player 🎬`, 'info', 3000);
-    setSongVideoMode('video');
+    console.error(`Playback start error for "${track.title}":`, err);
+    state.isPlaying = false;
+    updatePlayPauseUI();
+    showToast(`Playback error: ${err.message}`, 'error');
+    if (settings.autoSkipOnError !== false && state.queue.length > 1) {
+      setTimeout(() => { if (!state.isPlaying) btnNext?.click(); }, 1200);
+    }
   }
 }
 
 audio.addEventListener('error', (e) => {
+  // If the error was an abort (e.g. user switched songs or paused), ignore safely
+  if (audio.error && audio.error.code === 1 /* MEDIA_ERR_ABORTED */) return;
   const errMsg = audio.error?.message || '';
   if (!audio.getAttribute('src')) return;
   console.error('HTML5 audio error:', errMsg || e);
-  if (state.currentTrack && !isVideoMode) {
-    console.warn('Audio stream error encountered. Attempting video player fallback...');
-    showToast('Audio stream unavailable. Switching to video player... 🎬', 'info', 2500);
-    setSongVideoMode('video');
-    return;
-  }
   state.isPlaying = false;
   updatePlayPauseUI();
   if (settings.autoSkipOnError !== false && state.queue.length > 1) {
     showToast('Stream unavailable. Skipping to next track...', 'info', 2500);
-    setTimeout(() => { if (!state.isPlaying) btnNext?.click(); }, 500);
+    setTimeout(() => { if (!state.isPlaying) btnNext?.click(); }, 800);
   } else {
-    showToast('Audio stream failed or expired. Try skipping to the next track.', 'error');
+    showToast('Audio playback error', 'error');
   }
 });
 

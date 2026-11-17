@@ -340,16 +340,30 @@ function ensureStreamProxy() {
         }
 
         const videoId = match[1];
-        const rawUrl = await getRawStreamUrl(videoId);
+        let rawUrl = await getRawStreamUrl(videoId);
         const range = req.headers.range || 'bytes=0-';
 
-        const gvRes = await fetch(rawUrl, {
+        let gvRes = await fetch(rawUrl, {
           headers: {
             'Range': range,
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
             'Referer': 'https://music.youtube.com/'
           }
         });
+
+        // If googlevideo returned 403 or 410 (expired link / IP token update), invalidate cache and re-extract once
+        if (gvRes.status === 403 || gvRes.status === 410) {
+          console.warn(`[OpenTune Proxy] Stream URL expired/forbidden (${gvRes.status}) for ${videoId}. Refreshing stream...`);
+          streamCache.delete(`play:${videoId}`);
+          rawUrl = await getRawStreamUrl(videoId);
+          gvRes = await fetch(rawUrl, {
+            headers: {
+              'Range': range,
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+              'Referer': 'https://music.youtube.com/'
+            }
+          });
+        }
 
         const headers = {
           'Content-Type': gvRes.headers.get('content-type') || 'audio/webm',
@@ -419,7 +433,7 @@ function ensureStreamProxy() {
 ensureStreamProxy();
 
 async function getRawStreamUrl(videoId) {
-  return extractStreamUrlWithFormat(videoId, 'bestaudio', 'play');
+  return extractStreamUrlWithFormat(videoId, 'bestaudio/best[height<=480]/best', 'play');
 }
 
 async function getDownloadStreamUrl(videoId) {
