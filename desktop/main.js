@@ -243,15 +243,20 @@ ipcMain.handle('get-stream-url', async (_event, payload) => {
         const searchResults = await ytMusic.search(query, 'song');
         const altCandidates = (Array.isArray(searchResults) ? searchResults : [])
           .filter(t => t && t.id && t.id !== videoId)
-          .slice(0, 4);
+          .slice(0, 3);
 
-        for (const candidate of altCandidates) {
+        if (altCandidates.length > 0) {
+          const fn = streamService.getStreamUrl || streamService.getAudioStreamUrl;
           try {
-            const fn = streamService.getStreamUrl || streamService.getAudioStreamUrl;
-            const altUrl = await fn(candidate.id);
-            if (altUrl) {
-              console.log(`[OpenTune] Successfully resolved alternative stream via ${candidate.id} for "${trackTitle}"`);
-              return { success: true, url: altUrl, alternativeId: candidate.id };
+            // Race candidates concurrently for fastest playback start
+            const winner = await Promise.any(altCandidates.map(async (candidate) => {
+              const altUrl = await fn(candidate.id);
+              if (!altUrl) throw new Error('Empty URL');
+              return { url: altUrl, alternativeId: candidate.id };
+            }));
+            if (winner && winner.url) {
+              console.log(`[OpenTune] Fast parallel alternative stream resolved via ${winner.alternativeId} for "${trackTitle}"`);
+              return { success: true, url: winner.url, alternativeId: winner.alternativeId };
             }
           } catch (_) {}
         }
@@ -843,8 +848,8 @@ async function downloadUrlFastRange(rawUrl, destDir, baseName) {
 }
 
 async function downloadTrackAudioFile(track, destDir, baseName) {
-  const videoId = String(track?.id || track?.videoId || '').trim();
-  if (!videoId || videoId.length < 5) {
+  const primaryId = String(track?.alternativeId || track?.id || track?.videoId || '').trim();
+  if (!primaryId || primaryId.length < 5) {
     throw new Error(`Invalid video ID for "${track?.title || 'track'}"`);
   }
 
@@ -857,70 +862,117 @@ async function downloadTrackAudioFile(track, destDir, baseName) {
     return { filePath: existing, skipped: true };
   }
 
-  // Attempt 1: Parallel HTTP Range fetch of direct stream URL (~0.4-1.5s vs 45s un-ranged throttle)
-  try {
-    const getDlUrl = streamService.getDownloadStreamUrl || streamService.getRawStreamUrl;
-    const rawUrl = await getDlUrl(videoId);
-    return await downloadUrlFastRange(rawUrl, destDir, baseName);
-  } catch (err) {
-    if (currentDownloadAbort) throw err;
-    console.warn(`Fast range download failed for ${track?.title || videoId}, switching to yt-dlp:`, err.message);
-  }
-
-  // Attempt 2: Direct yt-dlp download with concurrent fragments
-  return new Promise(async (resolve, reject) => {
-    let ytDlpPath = streamService.getYtDlpPath();
-    if (typeof streamService.ensureYtDlpBinary === 'function') {
-      try { ytDlpPath = await streamService.ensureYtDlpBinary(); } catch (_) {}
-    }
-    const outTemplate = path.join(destDir, `${baseName}.%(ext)s`);
-    const args = [
-      '-f', 'bestaudio[ext=m4a]/bestaudio',
-      '--no-playlist',
-      '--no-part',
-      '--no-warnings',
-      '--no-check-certificates',
-      '--concurrent-fragments', '4',
-      '--socket-timeout', '15',
-      '--force-overwrites',
-      '-o', outTemplate,
-      `https://www.youtube.com/watch?v=${videoId}`
-    ];
-
-    const child = spawn(ytDlpPath, args, { windowsHide: true, env: process.env });
-    activeDownloadChildren.add(child);
-    let stderr = '';
-    let settled = false;
-
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      activeDownloadChildren.delete(child);
-      try { child.kill('SIGKILL'); } catch (_) {}
-      reject(new Error(`yt-dlp download timed out for ${track?.title || videoId}`));
-    }, 60000);
-
-    child.stderr.on('data', (d) => { stderr += d.toString(); });
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      activeDownloadChildren.delete(child);
-      if (settled) return;
-      settled = true;
-      const produced = findExistingAudioFile(destDir, baseName);
-      if (code === 0 && produced) {
-        resolve({ filePath: produced, skipped: false });
-      } else {
-        reject(new Error(stderr.trim().split('\n').slice(-2).join(' ') || `yt-dlp exited with code ${code}`));
+  const attemptDownloadId = async (targetId) => {
+    // Attempt 1: Parallel HTTP Range fetch of direct stream URL (~0.4-1.5s vs 45s un-ranged throttle)
+    try {
+      const getDlUrl = streamService.getDownloadStreamUrl || streamService.getRawStreamUrl;
+      const rawUrl = await getDlUrl(targetId);
+      if (rawUrl) {
+        return await downloadUrlFastRange(rawUrl, destDir, baseName);
       }
+    } catch (err) {
+      if (currentDownloadAbort) throw err;
+      console.warn(`Fast range download failed for ${targetId}, switching to yt-dlp:`, err.message);
+    }
+
+    // Attempt 2: Direct yt-dlp download with concurrent fragments and android/web client
+    return new Promise(async (resolve, reject) => {
+      let ytDlpPath = streamService.getYtDlpPath();
+      if (typeof streamService.ensureYtDlpBinary === 'function') {
+        try { ytDlpPath = await streamService.ensureYtDlpBinary(); } catch (_) {}
+      }
+      const outTemplate = path.join(destDir, `${baseName}.%(ext)s`);
+      const args = [
+        '-f', 'bestaudio[ext=m4a]/bestaudio/best',
+        '--extractor-args', 'youtube:player-client=android,web',
+        '--no-playlist',
+        '--no-part',
+        '--no-warnings',
+        '--no-check-certificates',
+        '--concurrent-fragments', '4',
+        '--socket-timeout', '15',
+        '--force-overwrites'
+      ];
+
+      if (typeof streamService.getNetscapeCookiesFile === 'function') {
+        const cookieFile = streamService.getNetscapeCookiesFile();
+        if (cookieFile && fs.existsSync(cookieFile)) {
+          args.push('--cookies', cookieFile);
+        }
+      }
+
+      args.push('-o', outTemplate, `https://www.youtube.com/watch?v=${targetId}`);
+
+      const child = spawn(ytDlpPath, args, { windowsHide: true, env: process.env });
+      activeDownloadChildren.add(child);
+      let stderr = '';
+      let settled = false;
+
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        activeDownloadChildren.delete(child);
+        try { child.kill('SIGKILL'); } catch (_) {}
+        reject(new Error(`yt-dlp download timed out for ${targetId}`));
+      }, 45000);
+
+      child.stderr.on('data', (d) => { stderr += d.toString(); });
+      child.on('close', (code) => {
+        clearTimeout(timer);
+        activeDownloadChildren.delete(child);
+        if (settled) return;
+        settled = true;
+        const produced = findExistingAudioFile(destDir, baseName);
+        if (code === 0 && produced) {
+          resolve({ filePath: produced, skipped: false });
+        } else {
+          reject(new Error(stderr.trim().split('\n').slice(-2).join(' ') || `yt-dlp exited with code ${code}`));
+        }
+      });
+      child.on('error', (err) => {
+        clearTimeout(timer);
+        activeDownloadChildren.delete(child);
+        if (settled) return;
+        settled = true;
+        reject(new Error(`Failed launching yt-dlp: ${err.message}`));
+      });
     });
-    child.on('error', (err) => {
-      clearTimeout(timer);
-      activeDownloadChildren.delete(child);
-      if (settled) return;
-      settled = true;
-      reject(new Error(`Failed launching yt-dlp: ${err.message}`));
-    });
-  });
+  };
+
+  try {
+    return await attemptDownloadId(primaryId);
+  } catch (primaryErr) {
+    if (currentDownloadAbort) throw primaryErr;
+    console.warn(`Primary download failed for ${track?.title || primaryId} (${primaryErr.message}). Searching fallback candidates...`);
+
+    // Smart fallback: search for working alternative upload of the same track
+    const trackTitle = track?.title || '';
+    const trackArtist = track?.artist || '';
+    if (trackTitle && typeof ytMusic !== 'undefined' && ytMusic.search) {
+      try {
+        const query = `${trackTitle} ${trackArtist}`.trim();
+        const searchResults = await ytMusic.search(query, 'song');
+        const altCandidates = (Array.isArray(searchResults) ? searchResults : [])
+          .filter(t => t && t.id && t.id !== primaryId)
+          .slice(0, 3);
+
+        for (const candidate of altCandidates) {
+          try {
+            console.log(`[OpenTune Downloader] Trying fallback candidate ${candidate.id} for "${trackTitle}"`);
+            const res = await attemptDownloadId(candidate.id);
+            if (res && res.filePath) {
+              console.log(`[OpenTune Downloader] Download succeeded via candidate ${candidate.id}`);
+              return res;
+            }
+          } catch (_) {}
+        }
+      } catch (altErr) {
+        console.warn('[OpenTune Downloader] Alternative search failed:', altErr.message);
+      }
+    }
+
+    throw primaryErr;
+  }
 }
 
 function getOfflineAssetDirs() {

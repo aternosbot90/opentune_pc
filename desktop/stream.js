@@ -256,7 +256,7 @@ async function extractStreamUrlWithFormat(videoId, formatSelector = 'bestaudio/b
       const args = [
         '-g',
         '-f', effectiveFormat,
-        '--extractor-args', 'youtube:player-client=default,-tv,web_safari,web_embedded',
+        '--extractor-args', 'youtube:player-client=android,web',
         '--no-playlist',
         '--no-warnings',
         '--no-check-certificates',
@@ -466,5 +466,6 @@ module.exports = {
   clearStreamCache,
   getYtDlpPath,
   ensureYtDlpBinary,
-  syncNetscapeCookies
+  syncNetscapeCookies,
+  getNetscapeCookiesFile
 };

@@ -884,13 +884,14 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
   }
   const requestToken = ++state.playRequestToken;
 
-  // Immediately silence previous audio without destroying the HTMLMediaElement pipeline
+  // 1. Immediately pause and unbind previous audio so it NEVER plays over new song selections
   try {
     audio.pause();
-    audio.currentTime = 0;
+    audio.removeAttribute('src');
+    audio.load();
   } catch (_) {}
-  const wasPlaying = Boolean(state.isPlaying || options?.autoplay !== false);
-  state.isPlaying = wasPlaying;
+  state.isPlaying = false;
+  state.isLoadingTrack = true;
   updatePlayPauseUI();
 
   state.currentTrack = track;
@@ -1063,6 +1064,7 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
       if (p !== undefined) {
         p.then(() => {
           if (requestToken !== state.playRequestToken || isVideoMode) return;
+          state.isLoadingTrack = false;
           state.isPlaying = true;
           updatePlayPauseUI();
           preloadAdjacentTracks();
@@ -1077,6 +1079,7 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
             }
             audio.play().then(() => {
               if (requestToken !== state.playRequestToken || isVideoMode) return;
+              state.isLoadingTrack = false;
               state.isPlaying = true;
               updatePlayPauseUI();
               preloadAdjacentTracks();
@@ -1115,6 +1118,8 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
     if (res && res.success && res.url) {
       if (res.alternativeId && res.alternativeId !== track.id) {
         console.log(`[OpenTune] Playing via alternative stream candidate: ${res.alternativeId}`);
+        track.alternativeId = res.alternativeId;
+        if (state.currentTrack) state.currentTrack.alternativeId = res.alternativeId;
       }
       if (typeof ensureEqualizerReady === 'function') ensureEqualizerReady();
       if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
@@ -1138,6 +1143,7 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
         if (p !== undefined) {
           p.then(() => {
             if (requestToken !== state.playRequestToken || isVideoMode) return;
+            state.isLoadingTrack = false;
             state.isPlaying = true;
             updatePlayPauseUI();
             preloadAdjacentTracks();
@@ -1152,6 +1158,7 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
               }
               audio.play().then(() => {
                 if (requestToken !== state.playRequestToken || isVideoMode) return;
+                state.isLoadingTrack = false;
                 state.isPlaying = true;
                 updatePlayPauseUI();
                 preloadAdjacentTracks();
@@ -1176,6 +1183,7 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
       }
     } else {
       console.warn(`Could not load direct stream for "${track.title}":`, res?.error);
+      state.isLoadingTrack = false;
       state.isPlaying = false;
       updatePlayPauseUI();
       showToast(`Could not load audio for "${track.title}"`, 'error');
@@ -1187,6 +1195,7 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
   } catch (err) {
     if (requestToken !== state.playRequestToken || isVideoMode) return;
     console.error(`Playback start error for "${track.title}":`, err);
+    state.isLoadingTrack = false;
     state.isPlaying = false;
     updatePlayPauseUI();
     showToast(`Playback error: ${err.message}`, 'error');
@@ -1240,6 +1249,10 @@ btnPlayPause.addEventListener('click', () => {
   if (!state.currentTrack) return;
   if (isVideoMode) {
     toggleVideoPlayPause();
+    return;
+  }
+  if (state.isLoadingTrack) {
+    showToast('Buffering track...', 'info', 1000);
     return;
   }
   const currentSrc = audio.getAttribute('src');
