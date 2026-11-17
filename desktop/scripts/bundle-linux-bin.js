@@ -27,3 +27,4 @@ async function bundleLinuxBinary() {
 bundleLinuxBinary().catch((err) => {
   console.warn('[bundle-linux-bin] Notice:', err.message);
 });
+

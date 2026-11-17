@@ -221,14 +221,45 @@ ipcMain.handle('open-external-url', async (_event, url) => {
   return false;
 });
 
-// Audio stream resolver (fast yt-dlp backend with in-memory caching)
-ipcMain.handle('get-stream-url', async (_event, videoId) => {
+// Audio stream resolver (fast yt-dlp backend with in-memory caching & automatic alternative candidate fallback)
+ipcMain.handle('get-stream-url', async (_event, payload) => {
+  const videoId = typeof payload === 'object' && payload !== null && payload.id ? String(payload.id).trim() : String(payload || '').trim();
+  const trackTitle = typeof payload === 'object' && payload !== null ? payload.title : '';
+  const trackArtist = typeof payload === 'object' && payload !== null ? payload.artist : '';
+
+  if (!videoId) return { success: false, error: 'Missing track videoId' };
+
   try {
     const fn = streamService.getStreamUrl || streamService.getAudioStreamUrl;
     const url = await fn(videoId);
     return { success: true, url };
   } catch (err) {
-    console.error('Stream resolver error:', err.message);
+    console.warn(`[OpenTune] Primary stream extraction notice for ${videoId}:`, err.message);
+
+    // Smart fallback: search for alternative upload of the same track if title is available
+    if (trackTitle && typeof ytMusic !== 'undefined' && ytMusic.search) {
+      try {
+        const query = `${trackTitle} ${trackArtist || ''}`.trim();
+        const searchResults = await ytMusic.search(query, 'song');
+        const altCandidates = (Array.isArray(searchResults) ? searchResults : [])
+          .filter(t => t && t.id && t.id !== videoId)
+          .slice(0, 4);
+
+        for (const candidate of altCandidates) {
+          try {
+            const fn = streamService.getStreamUrl || streamService.getAudioStreamUrl;
+            const altUrl = await fn(candidate.id);
+            if (altUrl) {
+              console.log(`[OpenTune] Successfully resolved alternative stream via ${candidate.id} for "${trackTitle}"`);
+              return { success: true, url: altUrl, alternativeId: candidate.id };
+            }
+          } catch (_) {}
+        }
+      } catch (altErr) {
+        console.warn('[OpenTune] Alternative stream search notice:', altErr.message);
+      }
+    }
+
     return { success: false, error: err.message };
   }
 });
@@ -1710,6 +1741,14 @@ app.on('child-process-gone', (_e, details) => {
 
 app.whenReady().then(() => {
   session.defaultSession.setUserAgent(CHROME_USER_AGENT);
+
+  // Synchronize any saved YouTube session cookies for yt-dlp
+  try {
+    const saved = ytMusic.loadSavedSession ? ytMusic.loadSavedSession() : null;
+    if (saved?.cookie && typeof streamService.syncNetscapeCookies === 'function') {
+      streamService.syncNetscapeCookies(saved.cookie);
+    }
+  } catch (_) {}
 
   // Fix YouTube Embed in Electron: supply official YouTube Referer & Origin to prevent Error 150/152
   session.defaultSession.webRequest.onBeforeSendHeaders(

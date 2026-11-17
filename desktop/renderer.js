@@ -1089,10 +1089,17 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
 
   // 2. Fetch direct online audio stream URL
   try {
-    const res = await window.api.getStreamUrl(track.id);
+    const res = await window.api.getStreamUrl({
+      id: track.id,
+      title: track.title,
+      artist: track.artist
+    });
     if (requestToken !== state.playRequestToken || isVideoMode) return; // User already switched songs!
 
-    if (res.success && res.url) {
+    if (res && res.success && res.url) {
+      if (res.alternativeId && res.alternativeId !== track.id) {
+        console.log(`[OpenTune] Playing via alternative stream candidate: ${res.alternativeId}`);
+      }
       if (typeof ensureEqualizerReady === 'function') ensureEqualizerReady();
       if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
         eqAudioCtx.resume().catch(() => {});
@@ -1152,17 +1159,16 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
         } catch (_) {}
       }
     } else {
-      console.error('Failed to get stream:', res.error);
-      state.isPlaying = false;
-      updatePlayPauseUI();
-      showToast(`Could not load audio for "${track.title}"`, 'error');
+      console.warn(`Direct audio stream restricted for "${track.title}". Switching to video player fallback...`);
+      showToast(`Protected song. Playing via Video Player 🎬`, 'info', 3000);
+      setSongVideoMode('video');
+      return;
     }
   } catch (err) {
     if (requestToken !== state.playRequestToken || isVideoMode) return;
-    console.error('Playback start error:', err);
-    state.isPlaying = false;
-    updatePlayPauseUI();
-    showToast(`Playback error: ${err.message}`, 'error');
+    console.warn(`Playback error for "${track.title}". Switching to video player fallback:`, err.message);
+    showToast(`Protected song. Playing via Video Player 🎬`, 'info', 3000);
+    setSongVideoMode('video');
   }
 }
 
@@ -1170,6 +1176,12 @@ audio.addEventListener('error', (e) => {
   const errMsg = audio.error?.message || '';
   if (!audio.getAttribute('src')) return;
   console.error('HTML5 audio error:', errMsg || e);
+  if (state.currentTrack && !isVideoMode) {
+    console.warn('Audio stream error encountered. Attempting video player fallback...');
+    showToast('Audio stream unavailable. Switching to video player... 🎬', 'info', 2500);
+    setSongVideoMode('video');
+    return;
+  }
   state.isPlaying = false;
   updatePlayPauseUI();
   if (settings.autoSkipOnError !== false && state.queue.length > 1) {

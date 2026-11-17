@@ -198,7 +198,43 @@ ensureYtDlpBinary().catch(() => {});
 /**
  * Resolves raw stream URL using yt-dlp with caching
  */
-async function extractStreamUrlWithFormat(videoId, formatSelector = 'bestaudio', cachePrefix = 'play') {
+function getNetscapeCookiesFile() {
+  const userBinDir = getUserDataBinDir();
+  if (userBinDir) {
+    const p = path.join(userBinDir, 'yt_cookies.txt');
+    if (fs.existsSync(p) && fs.statSync(p).size > 10) return p;
+  }
+  const localCookie = path.join(__dirname, '.session', 'yt_cookies.txt');
+  if (fs.existsSync(localCookie) && fs.statSync(localCookie).size > 10) return localCookie;
+  return null;
+}
+
+function syncNetscapeCookies(cookieString) {
+  if (!cookieString || typeof cookieString !== 'string') return null;
+  const targetDir = getUserDataBinDir() || path.join(__dirname, '.session');
+  try { fs.mkdirSync(targetDir, { recursive: true }); } catch (_) {}
+  const targetFile = path.join(targetDir, 'yt_cookies.txt');
+  try {
+    const lines = ['# Netscape HTTP Cookie File', '# https://curl.haxx.se/rfc/cookie_spec.html'];
+    const parts = cookieString.split(';');
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (!trimmed) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx <= 0) continue;
+      const name = trimmed.substring(0, eqIdx).trim();
+      const val = trimmed.substring(eqIdx + 1).trim();
+      if (!name) continue;
+      lines.push(`.youtube.com\tTRUE\t/\tTRUE\t2147483647\t${name}\t${val}`);
+    }
+    fs.writeFileSync(targetFile, lines.join('\n'), 'utf8');
+    return targetFile;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function extractStreamUrlWithFormat(videoId, formatSelector = 'bestaudio/best[height<=480]/best', cachePrefix = 'play') {
   const now = Date.now();
   const cacheKey = `${cachePrefix}:${videoId}`;
   if (streamCache.has(cacheKey)) {
@@ -216,7 +252,22 @@ async function extractStreamUrlWithFormat(videoId, formatSelector = 'bestaudio',
     const ytDlpPath = await ensureYtDlpBinary();
     return new Promise((resolve, reject) => {
       const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-      const args = ['-g', '-f', formatSelector, '--no-playlist', '--no-warnings', '--no-check-certificates', '--socket-timeout', '12', videoUrl];
+      const effectiveFormat = formatSelector || 'bestaudio/best[height<=480]/best';
+      const args = [
+        '-g',
+        '-f', effectiveFormat,
+        '--extractor-args', 'youtube:player-client=default,-tv,web_safari,web_embedded',
+        '--no-playlist',
+        '--no-warnings',
+        '--no-check-certificates',
+        '--socket-timeout', '12'
+      ];
+
+      const cookieFile = getNetscapeCookiesFile();
+      if (cookieFile && fs.existsSync(cookieFile)) {
+        args.push('--cookies', cookieFile);
+      }
+      args.push(videoUrl);
 
       const child = spawn(ytDlpPath, args, { windowsHide: true, env: process.env });
       let stdout = '';
@@ -400,5 +451,6 @@ module.exports = {
   getDownloadStreamUrl,
   clearStreamCache,
   getYtDlpPath,
-  ensureYtDlpBinary
+  ensureYtDlpBinary,
+  syncNetscapeCookies
 };
