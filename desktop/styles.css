@@ -1007,7 +1007,8 @@ body {
   height: 0;
 }
 
-.switch-slider {
+.switch-slider,
+.switch .slider.round {
   position: absolute;
   cursor: pointer;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -1017,7 +1018,8 @@ body {
   border: 1.5px solid rgba(255, 255, 255, 0.22);
 }
 
-.switch-slider:before {
+.switch-slider:before,
+.switch .slider.round:before {
   position: absolute;
   content: "";
   height: 18px;
@@ -1031,12 +1033,14 @@ body {
   box-shadow: 0 2px 6px rgba(0,0,0,0.35);
 }
 
-input:checked + .switch-slider {
+input:checked + .switch-slider,
+input:checked + .slider.round {
   background-color: var(--accent);
   border-color: var(--accent);
 }
 
-input:checked + .switch-slider:before {
+input:checked + .switch-slider:before,
+input:checked + .slider.round:before {
   height: 22px;
   width: 22px;
   left: 5px;
@@ -1780,6 +1784,41 @@ body.drawer-open .track-col-album,
 
 .drawer-close-btn:hover {
   color: var(--accent);
+}
+
+.modal-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+  outline: none;
+}
+
+.modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.24);
+  transform: scale(1.06);
+}
+
+.modal-close-btn:active {
+  transform: scale(0.94);
+}
+
+.modal-close-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  display: block;
 }
 
 .drawer-content {
@@ -6335,7 +6374,7 @@ body.light-theme[data-ui-theme="pure-black"] .library-bento-card {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 4px 6px 12px 2px;
+  padding: 16px 20px 20px;
 }
 
 .song-info-hero {
@@ -6494,27 +6533,33 @@ body.light-theme[data-ui-theme="pure-black"] .library-bento-card {
 
 .stat-value-wrap {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  align-items: center;
+  gap: 7px;
   min-width: 0;
+  flex-wrap: wrap;
 }
 
 .stat-value {
-  font-size: 1.05rem;
+  font-size: 1.02rem;
   font-weight: 700;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: -0.2px;
 }
 
 .stat-pill-badge {
   font-size: 0.72rem;
   font-weight: 600;
-  padding: 1px 7px;
+  padding: 2px 8px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text-secondary);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
 }
 
 .song-rating-bar-wrap {
@@ -6663,28 +6708,40 @@ body.light-theme[data-ui-theme="pure-black"] .library-bento-card {
 
 /* Speed & Pitch Tweaker Modal Styles */
 .speed-pitch-card {
-  max-width: 520px;
-  width: 90%;
+  max-width: 500px;
+  width: 92%;
+  border-radius: 24px;
+  background: rgba(18, 20, 28, 0.96);
+  backdrop-filter: blur(34px) saturate(200%);
+  -webkit-backdrop-filter: blur(34px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .speed-pitch-body {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
+  padding: 20px 24px 24px;
+  overflow-y: auto;
+  max-height: 80vh;
 }
 
 .tweaker-presets {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .tweaker-label {
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 0.74rem;
+  font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
 }
 
 .tweaker-preset-chips {
@@ -6694,37 +6751,40 @@ body.light-theme[data-ui-theme="pure-black"] .library-bento-card {
 }
 
 .preset-chip {
-  padding: 6px 12px;
+  padding: 7px 14px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-full);
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  transition: var(--transition-fast);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
 }
 
 .preset-chip:hover {
   background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.18);
   color: var(--text-primary);
+  transform: translateY(-1px);
 }
 
 .preset-chip.active {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
-  box-shadow: 0 2px 10px var(--accent-glow);
+  box-shadow: 0 3px 12px var(--accent-glow);
 }
 
 .tweaker-slider-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px;
+  gap: 8px;
+  padding: 14px 16px;
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .tweaker-slider-header {
@@ -6734,15 +6794,16 @@ body.light-theme[data-ui-theme="pure-black"] .library-bento-card {
 }
 
 .slider-title {
-  font-size: 0.86rem;
+  font-size: 0.88rem;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .slider-val {
-  font-size: 0.86rem;
+  font-size: 0.88rem;
   font-weight: 700;
   color: var(--accent);
+  font-variant-numeric: tabular-nums;
 }
 
 .tweaker-range {
@@ -6751,15 +6812,16 @@ body.light-theme[data-ui-theme="pure-black"] .library-bento-card {
   cursor: pointer;
   height: 6px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.15);
-  margin: 8px 0 4px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 6px 0 2px;
 }
 
 .slider-ticks {
   display: flex;
   justify-content: space-between;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
+  padding: 0 2px;
 }
 
 .tweaker-toggle-row {
@@ -6767,33 +6829,59 @@ body.light-theme[data-ui-theme="pure-black"] .library-bento-card {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px;
+  padding: 14px 16px;
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .tweaker-toggle-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
+  flex: 1;
 }
 
 .toggle-name {
-  font-size: 0.86rem;
+  font-size: 0.88rem;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .toggle-desc {
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .tweaker-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  padding-top: 4px;
+}
+
+#tweaker-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 18px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+}
+
+#tweaker-reset-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
 }
 
 /* In-App Auto-Update Floating Banner */
