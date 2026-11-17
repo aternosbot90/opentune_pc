@@ -1,8 +1,18 @@
 const { app, BrowserWindow, ipcMain, session, shell, dialog, screen } = require('electron');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const { Readable } = require('stream');
+
+function toFileUrl(filePath) {
+  if (!filePath) return '';
+  try {
+    return pathToFileURL(filePath).href;
+  } catch (_) {
+    return `file:///${filePath.replace(/\\/g, '/')}`;
+  }
+}
 
 // Ensure macOS & Linux GUI apps inherit Homebrew, Local & UserData paths in process.env.PATH
 if (process.platform === 'darwin' || process.platform === 'linux') {
@@ -1024,14 +1034,14 @@ function findExistingImageFile(dir, baseName, videoId) {
       for (const ext of exts) {
         const p = path.join(dir, `${baseName}${ext}`);
         if (fs.existsSync(p) && fs.statSync(p).size > 256) {
-          return `file:///${p.replace(/\\/g, '/')}`;
+          return toFileUrl(p);
         }
       }
     }
     for (const ext of exts) {
       const pl = path.join(dir, `cover${ext}`);
       if (fs.existsSync(pl) && fs.statSync(pl).size > 256) {
-        return `file:///${pl.replace(/\\/g, '/')}`;
+        return toFileUrl(pl);
       }
     }
   }
@@ -1040,7 +1050,7 @@ function findExistingImageFile(dir, baseName, videoId) {
     for (const ext of exts) {
       const p = path.join(thumbs, `${videoId}${ext}`);
       if (fs.existsSync(p) && fs.statSync(p).size > 256) {
-        return `file:///${p.replace(/\\/g, '/')}`;
+        return toFileUrl(p);
       }
     }
   }
@@ -1055,7 +1065,7 @@ function findExistingImageFile(dir, baseName, videoId) {
             for (const ext of exts) {
               const p = path.join(subDir, `${baseName}${ext}`);
               if (fs.existsSync(p) && fs.statSync(p).size > 256) {
-                return `file:///${p.replace(/\\/g, '/')}`;
+                return toFileUrl(p);
               }
             }
           }
@@ -1063,14 +1073,14 @@ function findExistingImageFile(dir, baseName, videoId) {
             for (const ext of exts) {
               const p = path.join(subDir, `${videoId}${ext}`);
               if (fs.existsSync(p) && fs.statSync(p).size > 256) {
-                return `file:///${p.replace(/\\/g, '/')}`;
+                return toFileUrl(p);
               }
             }
           }
           for (const ext of exts) {
             const pl = path.join(subDir, `cover${ext}`);
             if (fs.existsSync(pl) && fs.statSync(pl).size > 256) {
-              return `file:///${pl.replace(/\\/g, '/')}`;
+              return toFileUrl(pl);
             }
           }
         }
@@ -1187,13 +1197,13 @@ async function downloadAndCacheThumbnail(track, destDir, baseName, isPlaylist = 
     if (userThumbJpg && !fs.existsSync(userThumbJpg)) {
       try { fs.copyFileSync(destJpg, userThumbJpg); } catch (_) {}
     }
-    return `file:///${destJpg.replace(/\\/g, '/')}`;
+    return toFileUrl(destJpg);
   }
   if (userThumbJpg && fs.existsSync(userThumbJpg) && fs.statSync(userThumbJpg).size > 512) {
     if (destJpg && !fs.existsSync(destJpg)) {
       try { fs.copyFileSync(userThumbJpg, destJpg); } catch (_) {}
     }
-    return `file:///${userThumbJpg.replace(/\\/g, '/')}`;
+    return toFileUrl(userThumbJpg);
   }
 
   const rawThumb = track?.thumbnail || '';
@@ -1217,7 +1227,7 @@ async function downloadAndCacheThumbnail(track, destDir, baseName, isPlaylist = 
             const plCover = path.join(destDir, 'cover.jpg');
             if (!fs.existsSync(plCover)) fs.writeFileSync(plCover, buf);
           }
-          return destJpg ? `file:///${destJpg.replace(/\\/g, '/')}` : `file:///${userThumbJpg.replace(/\\/g, '/')}`;
+          return destJpg ? toFileUrl(destJpg) : toFileUrl(userThumbJpg);
         }
       }
     } catch (_) {}
@@ -1532,7 +1542,7 @@ function makeLocalTrackResponse(fullPath, videoId) {
   return {
     exists: true,
     filePath: fullPath,
-    fileUrl: `file:///${fullPath.replace(/\\/g, '/')}`,
+    fileUrl: toFileUrl(fullPath),
     thumbnailUrl: thumbUrl || null,
     lyricsText: lyricsObj?.content || null,
     parsedLyrics: lyricsObj?.parsed || null,
@@ -1637,7 +1647,7 @@ ipcMain.handle('sync-offline-tracks', async (_event, tracks) => {
     if (videoId) {
       const userThumb = path.join(thumbs, `${videoId}.jpg`);
       if (fs.existsSync(userThumb)) {
-        localThumb = `file:///${userThumb.replace(/\\/g, '/')}`;
+        localThumb = toFileUrl(userThumb);
       }
     }
 

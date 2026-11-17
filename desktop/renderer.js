@@ -884,11 +884,9 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
   }
   const requestToken = ++state.playRequestToken;
 
-  // 1. Immediately pause and unbind previous audio so it NEVER plays over new song selections
+  // 1. Immediately pause previous audio so it NEVER plays over new song selections
   try {
     audio.pause();
-    audio.removeAttribute('src');
-    audio.load();
   } catch (_) {}
   state.isPlaying = false;
   state.isLoadingTrack = true;
@@ -1046,13 +1044,15 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
     if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
       eqAudioCtx.resume().catch(() => {});
     }
+    // Remove crossorigin for local file playback to prevent Chromium CORS security blocks
+    audio.removeAttribute('crossorigin');
     audio.autoplay = true;
     audio.preload = 'auto';
     audio.src = localFile.fileUrl;
     audio.volume = state.isMuted ? 0 : state.volume;
     audio.playbackRate = currentPlaybackSpeed;
     if (options?.startTime && options.startTime > 0) {
-      audio.currentTime = options.startTime;
+      try { audio.currentTime = options.startTime; } catch (_) {}
     }
 
     const startLocalPlayback = () => {
@@ -1060,34 +1060,49 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
       if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
         eqAudioCtx.resume().catch(() => {});
       }
-      const p = audio.play();
-      if (p !== undefined) {
-        p.then(() => {
-          if (requestToken !== state.playRequestToken || isVideoMode) return;
-          state.isLoadingTrack = false;
-          state.isPlaying = true;
-          updatePlayPauseUI();
-          preloadAdjacentTracks();
-        }).catch((err) => {
-          console.warn('Local audio play waiting for buffer:', err.message);
-          const onReady = () => {
-            audio.removeEventListener('canplay', onReady);
-            audio.removeEventListener('loadeddata', onReady);
+
+      const executePlay = () => {
+        if (requestToken !== state.playRequestToken || isVideoMode) return;
+        if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
+          eqAudioCtx.resume().catch(() => {});
+        }
+        const p = audio.play();
+        if (p !== undefined) {
+          p.then(() => {
             if (requestToken !== state.playRequestToken || isVideoMode) return;
-            if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
-              eqAudioCtx.resume().catch(() => {});
-            }
-            audio.play().then(() => {
-              if (requestToken !== state.playRequestToken || isVideoMode) return;
-              state.isLoadingTrack = false;
-              state.isPlaying = true;
-              updatePlayPauseUI();
-              preloadAdjacentTracks();
-            }).catch(() => {});
-          };
-          audio.addEventListener('canplay', onReady, { once: true });
-          audio.addEventListener('loadeddata', onReady, { once: true });
-        });
+            state.isLoadingTrack = false;
+            state.isPlaying = true;
+            updatePlayPauseUI();
+            preloadAdjacentTracks();
+          }).catch((err) => {
+            console.warn('Local audio play error:', err.message);
+            if (requestToken !== state.playRequestToken) return;
+            state.isLoadingTrack = false;
+            state.isPlaying = false;
+            updatePlayPauseUI();
+          });
+        }
+      };
+
+      if (audio.readyState >= 2 /* HAVE_CURRENT_DATA */) {
+        executePlay();
+      } else {
+        let fired = false;
+        const onReady = () => {
+          if (fired) return;
+          fired = true;
+          audio.removeEventListener('canplay', onReady);
+          audio.removeEventListener('loadeddata', onReady);
+          executePlay();
+        };
+        audio.addEventListener('canplay', onReady, { once: true });
+        audio.addEventListener('loadeddata', onReady, { once: true });
+        // Failsafe timeout: local files should decode within 500ms
+        setTimeout(() => {
+          if (!fired && requestToken === state.playRequestToken && !state.isPlaying) {
+            onReady();
+          }
+        }, 500);
       }
     };
     startLocalPlayback();
@@ -1125,13 +1140,15 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
       if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
         eqAudioCtx.resume().catch(() => {});
       }
+      // Re-enable crossorigin for remote googlevideo streams so Web Audio API Equalizer works
+      audio.setAttribute('crossorigin', 'anonymous');
       audio.autoplay = true;
       audio.preload = 'auto';
       audio.src = res.url;
       audio.volume = state.isMuted ? 0 : state.volume;
       audio.playbackRate = currentPlaybackSpeed;
       if (options?.startTime && options.startTime > 0) {
-        audio.currentTime = options.startTime;
+        try { audio.currentTime = options.startTime; } catch (_) {}
       }
 
       const startOnlinePlayback = () => {
@@ -1139,34 +1156,49 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
         if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
           eqAudioCtx.resume().catch(() => {});
         }
-        const p = audio.play();
-        if (p !== undefined) {
-          p.then(() => {
-            if (requestToken !== state.playRequestToken || isVideoMode) return;
-            state.isLoadingTrack = false;
-            state.isPlaying = true;
-            updatePlayPauseUI();
-            preloadAdjacentTracks();
-          }).catch((err) => {
-            console.warn('Audio play waiting for buffer:', err.message);
-            const onReady = () => {
-              audio.removeEventListener('canplay', onReady);
-              audio.removeEventListener('loadeddata', onReady);
+
+        const executePlay = () => {
+          if (requestToken !== state.playRequestToken || isVideoMode) return;
+          if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
+            eqAudioCtx.resume().catch(() => {});
+          }
+          const p = audio.play();
+          if (p !== undefined) {
+            p.then(() => {
               if (requestToken !== state.playRequestToken || isVideoMode) return;
-              if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
-                eqAudioCtx.resume().catch(() => {});
-              }
-              audio.play().then(() => {
-                if (requestToken !== state.playRequestToken || isVideoMode) return;
-                state.isLoadingTrack = false;
-                state.isPlaying = true;
-                updatePlayPauseUI();
-                preloadAdjacentTracks();
-              }).catch(() => {});
-            };
-            audio.addEventListener('canplay', onReady, { once: true });
-            audio.addEventListener('loadeddata', onReady, { once: true });
-          });
+              state.isLoadingTrack = false;
+              state.isPlaying = true;
+              updatePlayPauseUI();
+              preloadAdjacentTracks();
+            }).catch((err) => {
+              console.warn('Audio play error:', err.message);
+              if (requestToken !== state.playRequestToken) return;
+              state.isLoadingTrack = false;
+              state.isPlaying = false;
+              updatePlayPauseUI();
+            });
+          }
+        };
+
+        if (audio.readyState >= 2 /* HAVE_CURRENT_DATA */) {
+          executePlay();
+        } else {
+          let fired = false;
+          const onReady = () => {
+            if (fired) return;
+            fired = true;
+            audio.removeEventListener('canplay', onReady);
+            audio.removeEventListener('loadeddata', onReady);
+            executePlay();
+          };
+          audio.addEventListener('canplay', onReady, { once: true });
+          audio.addEventListener('loadeddata', onReady, { once: true });
+          // Failsafe timeout for online stream buffering: 1500ms
+          setTimeout(() => {
+            if (!fired && requestToken === state.playRequestToken && !state.isPlaying) {
+              onReady();
+            }
+          }, 1500);
         }
       };
       startOnlinePlayback();
@@ -1211,6 +1243,7 @@ audio.addEventListener('error', (e) => {
   const errMsg = audio.error?.message || '';
   if (!audio.getAttribute('src')) return;
   console.error('HTML5 audio error:', errMsg || e);
+  state.isLoadingTrack = false;
   state.isPlaying = false;
   updatePlayPauseUI();
   if (settings.autoSkipOnError !== false && state.queue.length > 1) {
@@ -1249,10 +1282,6 @@ btnPlayPause.addEventListener('click', () => {
   if (!state.currentTrack) return;
   if (isVideoMode) {
     toggleVideoPlayPause();
-    return;
-  }
-  if (state.isLoadingTrack) {
-    showToast('Buffering track...', 'info', 1000);
     return;
   }
   const currentSrc = audio.getAttribute('src');
