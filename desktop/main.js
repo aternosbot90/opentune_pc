@@ -101,7 +101,11 @@ function createMainWindow() {
     }
   });
 
-  mainWindow.webContents.on('console-message', (_e, level, message, line, sourceId) => {
+  mainWindow.webContents.on('console-message', (event, ...rest) => {
+    const level = (event && typeof event === 'object' && event.level !== undefined) ? event.level : (rest[0] || 0);
+    const message = (event && typeof event === 'object' && event.message !== undefined) ? event.message : (rest[1] || '');
+    const line = (event && typeof event === 'object' && event.lineNumber !== undefined) ? event.lineNumber : (rest[2] || 0);
+    const sourceId = (event && typeof event === 'object' && event.sourceId !== undefined) ? event.sourceId : (rest[3] || '');
     if (level >= 2 /* Warning or Error */) {
       console.warn(`[Renderer L${level}] ${message} (${sourceId}:${line})`);
     }
@@ -280,6 +284,20 @@ ipcMain.handle('get-stream-url', async (_event, payload) => {
         }
       } catch (altErr) {
         console.warn('[OpenTune] Alternative stream search notice:', altErr.message);
+      }
+    }
+
+    // Direct yt-dlp search fallback (guarantees playback if original ID is unavailable/restricted)
+    if (trackTitle && typeof streamService.resolveStreamBySearch === 'function') {
+      try {
+        const query = `${trackTitle} ${trackArtist || ''}`.trim();
+        const searchRes = await streamService.resolveStreamBySearch(query);
+        if (searchRes && searchRes.url) {
+          console.log(`[OpenTune] Direct yt-dlp search stream resolved via ${searchRes.alternativeId} for "${trackTitle}"`);
+          return { success: true, url: searchRes.url, alternativeId: searchRes.alternativeId };
+        }
+      } catch (searchErr) {
+        console.warn('[OpenTune] yt-dlp search fallback notice:', searchErr.message);
       }
     }
 
@@ -882,15 +900,17 @@ async function downloadTrackAudioFile(track, destDir, baseName) {
 
   const attemptDownloadId = async (targetId) => {
     // Attempt 1: Parallel HTTP Range fetch of direct stream URL (~0.4-1.5s vs 45s un-ranged throttle)
-    try {
-      const getDlUrl = streamService.getDownloadStreamUrl || streamService.getRawStreamUrl;
-      const rawUrl = await getDlUrl(targetId);
-      if (rawUrl) {
-        return await downloadUrlFastRange(rawUrl, destDir, baseName);
+    if (!targetId.startsWith('ytsearch')) {
+      try {
+        const getDlUrl = streamService.getDownloadStreamUrl || streamService.getRawStreamUrl;
+        const rawUrl = await getDlUrl(targetId);
+        if (rawUrl) {
+          return await downloadUrlFastRange(rawUrl, destDir, baseName);
+        }
+      } catch (err) {
+        if (currentDownloadAbort) throw err;
+        console.warn(`Fast range download failed for ${targetId}, switching to yt-dlp:`, err.message);
       }
-    } catch (err) {
-      if (currentDownloadAbort) throw err;
-      console.warn(`Fast range download failed for ${targetId}, switching to yt-dlp:`, err.message);
     }
 
     // Attempt 2: Direct yt-dlp download with concurrent fragments and android/web client
@@ -918,7 +938,10 @@ async function downloadTrackAudioFile(track, destDir, baseName) {
         }
       }
 
-      args.push('-o', outTemplate, `https://www.youtube.com/watch?v=${targetId}`);
+      const targetUrl = targetId.startsWith('ytsearch')
+        ? targetId
+        : `https://www.youtube.com/watch?v=${targetId}`;
+      args.push('-o', outTemplate, targetUrl);
 
       const child = spawn(ytDlpPath, args, { windowsHide: true, env: process.env });
       activeDownloadChildren.add(child);
@@ -985,6 +1008,21 @@ async function downloadTrackAudioFile(track, destDir, baseName) {
         }
       } catch (altErr) {
         console.warn('[OpenTune Downloader] Alternative search failed:', altErr.message);
+      }
+    }
+
+    // Direct yt-dlp search download fallback (guarantees download if original ID is unavailable/restricted)
+    if (trackTitle) {
+      try {
+        console.log(`[OpenTune Downloader] Attempting direct search download for "${trackTitle}"`);
+        const query = `${trackTitle} ${trackArtist || ''}`.trim();
+        const res = await attemptDownloadId(`ytsearch1:${query}`);
+        if (res && res.filePath) {
+          console.log(`[OpenTune Downloader] Direct search download succeeded for "${trackTitle}"`);
+          return res;
+        }
+      } catch (searchDlErr) {
+        console.warn('[OpenTune Downloader] Direct search download failed:', searchDlErr.message);
       }
     }
 

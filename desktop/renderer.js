@@ -1133,7 +1133,8 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
     if (localFile.thumbnailUrl) {
       track.localThumbnail = localFile.thumbnailUrl;
       track.thumbnail = localFile.thumbnailUrl;
-      if (playerThumb) playerThumb.src = localFile.thumbnailUrl;
+      const pThumb = document.getElementById('player-thumb');
+      if (pThumb) pThumb.src = localFile.thumbnailUrl;
       const npCover = document.getElementById('np-cover-img');
       if (npCover) npCover.src = localFile.thumbnailUrl;
       const npGlow = document.getElementById('np-ambient-glow');
@@ -5844,8 +5845,11 @@ let videoTickerInterval = null;
 let lastVideoFramePingTs = 0;
 
 function getVideoEmbedUrl(videoId, startTime = 0) {
+  const targetId = (state.currentTrack && (state.currentTrack.id === videoId || state.currentTrack.alternativeId === videoId) && state.currentTrack.alternativeId)
+    ? state.currentTrack.alternativeId
+    : videoId;
   const start = Math.max(0, Math.floor(startTime));
-  return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&start=${start}&enablejsapi=1&playsinline=1&rel=0`;
+  return `https://www.youtube-nocookie.com/embed/${targetId}?autoplay=1&start=${start}&enablejsapi=1&playsinline=1&rel=0`;
 }
 
 function sendVideoCommand(func, args = []) {

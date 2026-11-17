@@ -524,12 +524,93 @@ async function getLocalFileStreamUrl(filePath) {
   return `http://127.0.0.1:${port}/local-file?path=${encodeURIComponent(filePath)}`;
 }
 
+async function resolveStreamBySearch(query) {
+  if (!query || typeof query !== 'string') throw new Error('Missing search query');
+  const cleanQuery = query.trim();
+  const cacheKey = `search:${cleanQuery.toLowerCase()}`;
+  const now = Date.now();
+  if (streamCache.has(cacheKey)) {
+    const cached = streamCache.get(cacheKey);
+    if (cached.expireAt > now && cached.id) {
+      const port = await ensureStreamProxy();
+      return {
+        url: port > 0 ? `http://127.0.0.1:${port}/stream/${cached.id}` : cached.url,
+        alternativeId: cached.id
+      };
+    }
+  }
+
+  const ytDlpPath = await ensureYtDlpBinary();
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-g',
+      '--print', '%(id)s',
+      '-f', 'bestaudio/best[height<=480]/best',
+      `ytsearch1:${cleanQuery}`,
+      '--no-playlist',
+      '--no-warnings',
+      '--no-check-certificates',
+      '--socket-timeout', '12'
+    ];
+
+    const cookieFile = getNetscapeCookiesFile();
+    if (cookieFile && fs.existsSync(cookieFile)) {
+      args.push('--cookies', cookieFile);
+    }
+
+    const child = spawn(ytDlpPath, args, { windowsHide: true, env: process.env });
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try { child.kill('SIGKILL'); } catch (_) {}
+      reject(new Error(`Stream search timed out for "${cleanQuery}"`));
+    }, 25000);
+
+    child.stdout.on('data', (d) => { stdout += d.toString(); });
+    child.stderr.on('data', (d) => { stderr += d.toString(); });
+
+    child.on('close', async (code) => {
+      clearTimeout(timeout);
+      if (settled) return;
+      settled = true;
+      if (code === 0) {
+        const parts = stdout.trim().split('\n').map(s => s.trim()).filter(Boolean);
+        if (parts.length >= 2 && parts[1].startsWith('http')) {
+          const resolvedId = parts[0];
+          const rawUrl = parts[1];
+          streamCache.set(`play:${resolvedId}`, { url: rawUrl, expireAt: Date.now() + 4 * 3600 * 1000 });
+          streamCache.set(cacheKey, { id: resolvedId, url: rawUrl, expireAt: Date.now() + 4 * 3600 * 1000 });
+          const port = await ensureStreamProxy();
+          resolve({
+            url: port > 0 ? `http://127.0.0.1:${port}/stream/${resolvedId}` : rawUrl,
+            alternativeId: resolvedId
+          });
+          return;
+        }
+      }
+      reject(new Error(`Failed to resolve stream by search for "${cleanQuery}": ${stderr || 'Unknown error'}`));
+    });
+
+    child.on('error', (err) => {
+      clearTimeout(timeout);
+      if (settled) return;
+      settled = true;
+      reject(new Error(`Error launching yt-dlp search: ${err.message}`));
+    });
+  });
+}
+
 module.exports = {
   getStreamUrl,
   getAudioStreamUrl: getStreamUrl,
   getRawStreamUrl,
   getDownloadStreamUrl,
   getLocalFileStreamUrl,
+  resolveStreamBySearch,
   ensureStreamProxy,
   clearStreamCache,
   getYtDlpPath,
