@@ -69,6 +69,7 @@ app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
 app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling');
 // Allow audio & Web Audio API AudioContext to autoplay reliably without requiring explicit user gestures
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+app.commandLine.appendSwitch('allow-file-access-from-files');
 app.commandLine.appendSwitch('disable-features', 'PreloadMediaEngagementData,MediaEngagementBypassAutoplayPolicies');
 
 let mainWindow = null;
@@ -95,7 +96,14 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: false // Allows streaming direct audio from googlevideo
+      webSecurity: false, // Allows streaming direct audio from googlevideo
+      allowRunningInsecureContent: true
+    }
+  });
+
+  mainWindow.webContents.on('console-message', (_e, level, message, line, sourceId) => {
+    if (level >= 2 /* Warning or Error */) {
+      console.warn(`[Renderer L${level}] ${message} (${sourceId}:${line})`);
     }
   });
 
@@ -1534,14 +1542,20 @@ ipcMain.handle('download-single-track', async (_event, payload) => {
   }
 });
 
-function makeLocalTrackResponse(fullPath, videoId) {
+async function makeLocalTrackResponse(fullPath, videoId) {
   const dir = path.dirname(fullPath);
   const base = path.basename(fullPath, path.extname(fullPath));
   const { thumbUrl, lyricsObj, metaObj } = resolveAccompanyingAssets(dir, base, videoId);
+  let fileUrl = toFileUrl(fullPath);
+  if (typeof streamService.getLocalFileStreamUrl === 'function') {
+    try {
+      fileUrl = await streamService.getLocalFileStreamUrl(fullPath);
+    } catch (_) {}
+  }
   return {
     exists: true,
     filePath: fullPath,
-    fileUrl: toFileUrl(fullPath),
+    fileUrl,
     thumbnailUrl: thumbUrl || null,
     lyricsText: lyricsObj?.content || null,
     parsedLyrics: lyricsObj?.parsed || null,
@@ -1575,7 +1589,7 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
   for (const name of candidateNames) {
     const directFile = findExistingAudioFile(rootDir, name);
     if (directFile) {
-      return makeLocalTrackResponse(directFile, videoId);
+      return await makeLocalTrackResponse(directFile, videoId);
     }
   }
 
@@ -1587,7 +1601,7 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
         for (const name of candidateNames) {
           const subDirect = findExistingAudioFile(subDir, name);
           if (subDirect) {
-            return makeLocalTrackResponse(subDirect, videoId);
+            return await makeLocalTrackResponse(subDirect, videoId);
           }
         }
         try {
@@ -1602,7 +1616,7 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
               const fullPath = path.join(subDir, file);
               try {
                 if (fs.statSync(fullPath).size > 32768) {
-                  return makeLocalTrackResponse(fullPath, videoId);
+                  return await makeLocalTrackResponse(fullPath, videoId);
                 }
               } catch (_) {}
             }
@@ -1618,7 +1632,7 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
             const fullPath = path.join(rootDir, ent.name);
             try {
               if (fs.statSync(fullPath).size > 32768) {
-                return makeLocalTrackResponse(fullPath, videoId);
+                return await makeLocalTrackResponse(fullPath, videoId);
               }
             } catch (_) {}
           }

@@ -332,6 +332,68 @@ function ensureStreamProxy() {
           return res.end();
         }
 
+        if (req.url.startsWith('/local-file')) {
+          const u = new URL(req.url, `http://127.0.0.1:${proxyPort || 60000}`);
+          const targetPath = decodeURIComponent(u.searchParams.get('path') || '');
+          if (!targetPath || !fs.existsSync(targetPath)) {
+            res.writeHead(404, { 'Access-Control-Allow-Origin': '*' });
+            return res.end('File not found');
+          }
+          const stat = fs.statSync(targetPath);
+          const totalSize = stat.size;
+          const rangeHeader = req.headers.range;
+
+          const ext = path.extname(targetPath).toLowerCase();
+          const mimeTypes = {
+            '.m4a': 'audio/mp4',
+            '.mp3': 'audio/mpeg',
+            '.webm': 'audio/webm',
+            '.opus': 'audio/ogg',
+            '.ogg': 'audio/ogg',
+            '.mp4': 'video/mp4',
+            '.wav': 'audio/wav',
+            '.flac': 'audio/flac'
+          };
+          const contentType = mimeTypes[ext] || 'audio/mp4';
+
+          const baseHeaders = {
+            'Content-Type': contentType,
+            'Accept-Ranges': 'bytes',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+            'Access-Control-Allow-Headers': 'Range, Content-Type',
+            'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges'
+          };
+
+          if (rangeHeader) {
+            const parts = rangeHeader.replace(/bytes=/, '').split('-');
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
+            const chunkSize = (end - start) + 1;
+
+            res.writeHead(206, {
+              ...baseHeaders,
+              'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+              'Content-Length': chunkSize
+            });
+
+            const stream = fs.createReadStream(targetPath, { start, end });
+            stream.on('error', () => { try { res.destroy(); } catch (_) {} });
+            req.on('close', () => { try { stream.destroy(); } catch (_) {} });
+            stream.pipe(res);
+          } else {
+            res.writeHead(200, {
+              ...baseHeaders,
+              'Content-Length': totalSize
+            });
+            const stream = fs.createReadStream(targetPath);
+            stream.on('error', () => { try { res.destroy(); } catch (_) {} });
+            req.on('close', () => { try { stream.destroy(); } catch (_) {} });
+            stream.pipe(res);
+          }
+          return;
+        }
+
         const match = req.url.match(/\/stream\/([a-zA-Z0-9_-]+)/);
         if (!match) {
           res.writeHead(404);
@@ -457,11 +519,18 @@ async function getStreamUrl(videoId) {
   return rawUrl;
 }
 
+async function getLocalFileStreamUrl(filePath) {
+  const port = await ensureStreamProxy();
+  return `http://127.0.0.1:${port}/local-file?path=${encodeURIComponent(filePath)}`;
+}
+
 module.exports = {
   getStreamUrl,
   getAudioStreamUrl: getStreamUrl,
   getRawStreamUrl,
   getDownloadStreamUrl,
+  getLocalFileStreamUrl,
+  ensureStreamProxy,
   clearStreamCache,
   getYtDlpPath,
   ensureYtDlpBinary,
