@@ -1,10 +1,10 @@
 {
   "name": "opentune-desktop",
   "productName": "OpenTune",
-  "version": "3.1.5",
+  "version": "3.1.6",
   "description": "OpenTune Desktop Music Client",
   "main": "main.js",
-  "author": "Arturo254",
+  "author": "THROTTLEKILLZ",
   "license": "GPL-3.0",
   "scripts": {
     "start": "electron .",
@@ -101,7 +101,7 @@
     "linux": {
       "category": "Audio;Music;Player;",
       "icon": "assets/icon.png",
-      "maintainer": "Arturo254",
+      "maintainer": "THROTTLEKILLZ",
       "target": [
         {
           "target": "AppImage",
@@ -141,7 +141,9 @@
       "styles.css",
       "stream.js",
       "lyrics.js",
+      "scrobbler.js",
       "ytmusic.js",
+      "ui/**/*",
       "assets/**/*",
       "node_modules/**/*"
     ]

@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('api', {
   getArtist: (artistId) => ipcRenderer.invoke('get-artist', artistId),
   getLibrary: () => ipcRenderer.invoke('get-library'),
   getTrackDetails: (videoId, meta = {}) => ipcRenderer.invoke('get-track-details', videoId, meta),
+  getFastTrackStats: (videoId) => ipcRenderer.invoke('get-fast-track-stats', videoId),
   getTrackComments: (videoId) => ipcRenderer.invoke('get-track-comments', videoId),
   postTrackComment: (videoId, text) => ipcRenderer.invoke('post-track-comment', { videoId, text }),
 
@@ -74,6 +75,12 @@ contextBridge.exposeInMainWorld('api', {
 
   // In-App Auto Updates (Windows & macOS)
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  scrobbleSubmit: (payload) => ipcRenderer.invoke('scrobble-submit', payload),
+  scrobbleTestListenBrainz: (cfg) => ipcRenderer.invoke('scrobble-test-lb', cfg),
+  scrobbleLastfmLogin: (cfg) => ipcRenderer.invoke('scrobble-lfm-login', cfg),
+  cacheTrackAudio: (track) => ipcRenderer.invoke('cache-track-audio', track),
+  getCachedTracks: () => ipcRenderer.invoke('get-cached-tracks'),
+  scanDownloadedPlaylists: () => ipcRenderer.invoke('scan-downloaded-playlists'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdateNow: () => ipcRenderer.invoke('install-update-now'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),

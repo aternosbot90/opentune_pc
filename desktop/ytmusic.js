@@ -266,13 +266,13 @@ function upgradeThumbnail(url, size = 544) {
   // Google CDN (YouTube Music album artwork & artist avatars)
   if (clean.includes('googleusercontent.com') || clean.includes('ggpht.com')) {
     clean = clean
-      .replace(/=w\d+-h\d+[^?#]*/, `=w${size}-h${size}-l90-rj`)
+      .replace(/=w\d+-h\d+[^?#]*/, `=w${size}-h${size}-c-l90-rj`)
       .replace(/=s\d+[^?#]*/, `=s${size}-c`);
     if (!clean.includes(`=w${size}`) && !clean.includes(`=s${size}`)) {
       if (clean.includes('=')) {
-        clean = clean.split('=')[0] + `=w${size}-h${size}-l90-rj`;
+        clean = clean.split('=')[0] + `=w${size}-h${size}-c-l90-rj`;
       } else {
-        clean += `=w${size}-h${size}-l90-rj`;
+        clean += `=w${size}-h${size}-c-l90-rj`;
       }
     }
     return clean;
@@ -445,12 +445,41 @@ function formatSongItem(item, defaultAlbum = '') {
 
   const thumbnail = extractThumbnailUrl(item, id);
 
-  let views = item.views?.text || (typeof item.views === 'string' ? item.views : '') || item.view_count || '';
+  let views = item.views?.text || (typeof item.views === 'string' ? item.views : '') || item.view_count || item.short_view_count_text?.text || '';
   if (!views && Array.isArray(item.flex_columns)) {
     for (const fc of item.flex_columns) {
-      const txt = fc?.title?.text || '';
+      const runs = fc?.title?.runs || [];
+      for (const r of runs) {
+        const txt = r?.text || '';
+        if (/(?:views?|plays?)\b/i.test(txt)) {
+          views = txt.trim();
+          break;
+        }
+      }
+      if (views) break;
+      const colTxt = fc?.title?.text || '';
+      if (/(?:views?|plays?)\b/i.test(colTxt)) {
+        views = colTxt.trim();
+        break;
+      }
+    }
+  }
+  if (!views && Array.isArray(item.subtitle?.runs)) {
+    for (const r of item.subtitle.runs) {
+      const txt = r?.text || '';
       if (/(?:views?|plays?)\b/i.test(txt)) {
         views = txt.trim();
+        break;
+      }
+    }
+  }
+
+  let likes = item.likes?.text || (typeof item.likes === 'string' ? item.likes : '') || item.like_count || '';
+  if (!likes && Array.isArray(item.subtitle?.runs)) {
+    for (const r of item.subtitle.runs) {
+      const txt = r?.text || '';
+      if (/likes?\b/i.test(txt)) {
+        likes = txt.trim();
         break;
       }
     }
@@ -468,6 +497,8 @@ function formatSongItem(item, defaultAlbum = '') {
     year: year || undefined,
     duration,
     views: views || undefined,
+    plays: views || undefined,
+    likes: likes || undefined,
     thumbnail
   };
 }
@@ -2073,8 +2104,9 @@ async function getTrackDetails(videoId, meta = {}) {
   let dislikeData = null;
   let albumCover = null;
 
-  try {
-    basic = await executeMusicAction(async (yt) => {
+  // Run basic info and dislike stats in parallel for instant response
+  await Promise.allSettled([
+    executeMusicAction(async (yt) => {
       const info = await yt.getBasicInfo(videoId);
       return {
         title: info.basic_info.title || '',
@@ -2086,15 +2118,22 @@ async function getTrackDetails(videoId, meta = {}) {
         isLive: info.basic_info.is_live || false,
         keywords: info.basic_info.keywords || []
       };
-    });
-  } catch (err) {
-    console.warn('getBasicInfo notice:', err.message);
-  }
+    }).then(res => { basic = res; }).catch(err => {
+      console.warn('getBasicInfo notice:', err.message);
+    }),
+    fetch(`https://returnyoutubedislikeapi.com/votes?videoId=${encodeURIComponent(videoId)}`, {
+      signal: AbortSignal.timeout(3000)
+    }).then(r => r.ok ? r.json() : null).then(data => {
+      if (data) dislikeData = data;
+    }).catch(e => {
+      console.warn('Return YouTube Dislike API notice:', e.message);
+    })
+  ]);
 
   // 1. If meta already provides an official Google CDN square cover, upgrade to 1200
   if (meta.thumbnail && (meta.thumbnail.includes('googleusercontent.com') || meta.thumbnail.includes('ggpht.com'))) {
     albumCover = upgradeThumbnail(meta.thumbnail, 1200);
-  } else {
+  } else if (!meta.forStatsOnly) {
     // 2. Search YouTube Music for the official song release to extract pure 1:1 square artwork
     try {
       const qTitle = meta.title || basic?.title || '';
@@ -2117,17 +2156,6 @@ async function getTrackDetails(videoId, meta = {}) {
     } else if (videoId) {
       albumCover = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
     }
-  }
-
-  try {
-    const res = await fetch(`https://returnyoutubedislikeapi.com/votes?videoId=${encodeURIComponent(videoId)}`, {
-      signal: AbortSignal.timeout(4500)
-    });
-    if (res.ok) {
-      dislikeData = await res.json();
-    }
-  } catch (e) {
-    console.warn('Return YouTube Dislike API notice:', e.message);
   }
 
   return {

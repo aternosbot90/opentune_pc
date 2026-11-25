@@ -450,6 +450,27 @@ ipcMain.handle('get-track-details', async (_event, videoId, meta = {}) => {
   }
 });
 
+ipcMain.handle('get-fast-track-stats', async (_event, videoId) => {
+  const cleanId = String(videoId || '').trim();
+  if (!cleanId) return null;
+  try {
+    const res = await fetch(`https://returnyoutubedislikeapi.com/votes?videoId=${encodeURIComponent(cleanId)}`, {
+      signal: AbortSignal.timeout(3000)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        videoId: cleanId,
+        views: data.viewCount || 0,
+        likes: data.likes || 0,
+        dislikes: data.dislikes || 0,
+        rating: data.rating ? Number(data.rating.toFixed(2)) : null
+      };
+    }
+  } catch (_) {}
+  return null;
+});
+
 ipcMain.handle('get-track-comments', async (_event, videoId) => {
   try {
     return await ytMusic.getTrackComments(videoId);
@@ -1607,6 +1628,15 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
   if (!track || (!track.id && !track.title)) return { exists: false };
 
   const videoId = String(track.id || track.videoId || '').trim();
+
+  // 1. Check audio disk cache directory first
+  if (typeof streamService.findCachedAudioFile === 'function') {
+    const cachedAudio = streamService.findCachedAudioFile(videoId);
+    if (cachedAudio) {
+      return await makeLocalTrackResponse(cachedAudio, videoId);
+    }
+  }
+
   const rootDir = resolveDownloadBaseDir(customDir);
   if (!fs.existsSync(rootDir)) return { exists: false };
 
@@ -1757,6 +1787,170 @@ ipcMain.handle('cache-missing-offline-assets', async (_event, tracks) => {
     } catch (_) {}
   }
   return { updatedCount };
+});
+
+// ---- Scrobbling (ListenBrainz / Last.fm) --------------------------------------------------
+const scrobbler = require('./scrobbler');
+ipcMain.handle('scrobble-submit', async (_e, { config, kind, track, listenedAt }) => {
+  try { return await scrobbler.submit(config, kind, track || {}, listenedAt); }
+  catch (err) { return { error: String(err && err.message || err) }; }
+});
+ipcMain.handle('scrobble-test-lb', async (_e, cfg) => {
+  try { return await scrobbler.lbValidate(cfg || {}); }
+  catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+});
+ipcMain.handle('scrobble-lfm-login', async (_e, cfg) => {
+  try { return await scrobbler.lfmLogin(cfg || {}); }
+  catch (err) { return { ok: false, error: String(err && err.message || err) }; }
+});
+
+// ---- Audio Disk Cache & Offline Music -----------------------------------------------------
+ipcMain.handle('cache-track-audio', async (_e, track) => {
+  if (!track || !track.id) return { success: false, error: 'Invalid track' };
+  const videoId = track.id;
+  const cacheDir = streamService.getAudioCacheDir ? streamService.getAudioCacheDir() : path.join(app.getPath('userData'), 'audio_cache');
+  if (!fs.existsSync(cacheDir)) {
+    try { fs.mkdirSync(cacheDir, { recursive: true }); } catch (_) {}
+  }
+  const targetFile = path.join(cacheDir, `${videoId}.m4a`);
+  if (fs.existsSync(targetFile) && fs.statSync(targetFile).size > 30000) {
+    return { success: true, filePath: targetFile, alreadyCached: true };
+  }
+
+  try {
+    const rawUrl = await streamService.getDownloadStreamUrl(videoId);
+    if (!rawUrl) return { success: false, error: 'No stream available' };
+    await downloadUrlFastRange(rawUrl, cacheDir, videoId);
+    // Also cache metadata and thumbnail in background
+    const cleanArt = cleanArtistName(track.artist || 'Unknown Artist');
+    const safeArtist = sanitizeFilename(cleanArt);
+    const safeTitle = sanitizeFilename(track.title || 'Track');
+    const baseName = `${safeArtist} - ${safeTitle}`;
+    downloadAndCacheThumbnail(track, cacheDir, baseName, false).catch(() => {});
+    downloadAndCacheMetadata(track, cacheDir, baseName).catch(() => {});
+    return { success: true, filePath: targetFile };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('get-cached-tracks', async () => {
+  const cacheDir = streamService.getAudioCacheDir ? streamService.getAudioCacheDir() : path.join(app.getPath('userData'), 'audio_cache');
+  if (!fs.existsSync(cacheDir)) return [];
+  const { meta, thumbs } = getOfflineAssetDirs();
+  const tracks = [];
+  try {
+    const files = fs.readdirSync(cacheDir);
+    for (const f of files) {
+      const ext = path.extname(f).toLowerCase();
+      if (!['.m4a', '.opus', '.webm', '.mp3'].includes(ext)) continue;
+      const videoId = path.basename(f, ext);
+      const metaPath = path.join(meta, `${videoId}.json`);
+      let trackData = null;
+      if (fs.existsSync(metaPath)) {
+        try { trackData = JSON.parse(fs.readFileSync(metaPath, 'utf8')); } catch (_) {}
+      }
+      const thumbPath = path.join(thumbs, `${videoId}.jpg`);
+      const localThumb = fs.existsSync(thumbPath) ? toFileUrl(thumbPath) : '';
+      tracks.push({
+        id: videoId,
+        title: trackData?.title || videoId,
+        artist: trackData?.artist || 'Unknown Artist',
+        album: trackData?.album || 'Offline Cache',
+        duration: trackData?.duration || '',
+        thumbnail: localThumb || trackData?.thumbnail || 'assets/icon.png',
+        localThumbnail: localThumb,
+        isCachedOffline: true
+      });
+    }
+  } catch (_) {}
+  return tracks;
+});
+
+ipcMain.handle('scan-downloaded-playlists', async () => {
+  const rootDir = resolveDownloadBaseDir();
+  if (!fs.existsSync(rootDir)) return [];
+  const playlists = [];
+  const audioExts = ['.m4a', '.webm', '.opus', '.mp3', '.mp4', '.ogg'];
+  const { meta, thumbs } = getOfflineAssetDirs();
+
+  try {
+    const entries = fs.readdirSync(rootDir, { withFileTypes: true });
+    for (const ent of entries) {
+      if (!ent.isDirectory()) continue;
+      const folderName = ent.name;
+      // Skip system or internal asset folders
+      if (folderName === 'bin' || folderName === 'offline_assets') continue;
+      const subDir = path.join(rootDir, folderName);
+      const subFiles = fs.readdirSync(subDir);
+      const tracks = [];
+
+      for (const file of subFiles) {
+        const ext = path.extname(file).toLowerCase();
+        if (!audioExts.includes(ext)) continue;
+        const fullAudioPath = path.join(subDir, file);
+        try {
+          if (fs.statSync(fullAudioPath).size < 30000) continue;
+        } catch (_) { continue; }
+
+        const baseName = path.basename(file, ext);
+        let title = baseName;
+        let artist = 'Unknown Artist';
+        if (baseName.includes(' - ')) {
+          const parts = baseName.split(' - ');
+          artist = parts[0].trim();
+          title = parts.slice(1).join(' - ').trim();
+        }
+
+        let matchedId = '';
+        const metaEntries = fs.existsSync(meta) ? fs.readdirSync(meta) : [];
+        for (const mf of metaEntries) {
+          if (!mf.endsWith('.json')) continue;
+          try {
+            const mData = JSON.parse(fs.readFileSync(path.join(meta, mf), 'utf8'));
+            if (mData.title === title || mData.id === baseName) {
+              matchedId = mData.id || path.basename(mf, '.json');
+              if (mData.artist) artist = mData.artist;
+              break;
+            }
+          } catch (_) {}
+        }
+
+        const videoId = matchedId || `offline_${Buffer.from(file).toString('hex').slice(0, 11)}`;
+        const thumbFile = path.join(thumbs, `${videoId}.jpg`);
+        const localThumb = fs.existsSync(thumbFile) ? toFileUrl(thumbFile) : '';
+
+        tracks.push({
+          id: videoId,
+          title,
+          artist,
+          album: folderName,
+          duration: '',
+          thumbnail: localThumb || 'assets/icon.png',
+          localThumbnail: localThumb,
+          localFilePath: fullAudioPath,
+          isDownloaded: true
+        });
+      }
+
+      if (tracks.length > 0) {
+        playlists.push({
+          id: `local_dir_${Buffer.from(folderName).toString('hex')}`,
+          title: folderName,
+          author: 'Downloaded Playlist',
+          trackCount: tracks.length,
+          tracks,
+          thumbnail: tracks[0].localThumbnail || tracks[0].thumbnail || 'assets/icon.png',
+          isLocal: true,
+          isDownloaded: true
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Scan downloaded playlists notice:', err.message);
+  }
+
+  return playlists;
 });
 
 // --- In-App Auto Updates (electron-updater for Windows & macOS) ---

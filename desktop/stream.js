@@ -19,6 +19,31 @@ function getUserDataBinDir() {
   return null;
 }
 
+function getAudioCacheDir() {
+  if (electronApp) {
+    try {
+      const p = path.join(electronApp.getPath('userData'), 'audio_cache');
+      if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
+      return p;
+    } catch (_) {}
+  }
+  return null;
+}
+
+function findCachedAudioFile(videoId) {
+  if (!videoId) return null;
+  const cacheDir = getAudioCacheDir();
+  if (cacheDir && fs.existsSync(cacheDir)) {
+    for (const ext of ['.m4a', '.opus', '.webm', '.mp3']) {
+      const p = path.join(cacheDir, `${videoId}${ext}`);
+      try {
+        if (fs.existsSync(p) && fs.statSync(p).size > 15000) return p;
+      } catch (_) {}
+    }
+  }
+  return null;
+}
+
 const streamCache = new Map(); // cacheKey -> { url, expireAt }
 const inflightExtractions = new Map(); // cacheKey -> Promise<string>
 let proxyServer = null;
@@ -234,7 +259,9 @@ function syncNetscapeCookies(cookieString) {
   }
 }
 
-async function extractStreamUrlWithFormat(videoId, formatSelector = 'bestaudio/best[height<=480]/best', cachePrefix = 'play') {
+async function extractStreamUrlWithFormat(rawTarget, formatSelector = 'bestaudio/best[height<=480]/best', cachePrefix = 'play') {
+  const videoId = typeof rawTarget === 'object' && rawTarget !== null && rawTarget.id ? String(rawTarget.id).trim() : String(rawTarget || '').trim();
+  if (!videoId) throw new Error('Video ID is required for stream extraction');
   const now = Date.now();
   const cacheKey = `${cachePrefix}:${videoId}`;
   if (streamCache.has(cacheKey)) {
@@ -493,11 +520,13 @@ function ensureStreamProxy() {
 // Start proxy server
 ensureStreamProxy();
 
-async function getRawStreamUrl(videoId) {
+async function getRawStreamUrl(rawTarget) {
+  const videoId = typeof rawTarget === 'object' && rawTarget !== null && rawTarget.id ? String(rawTarget.id).trim() : String(rawTarget || '').trim();
   return extractStreamUrlWithFormat(videoId, 'bestaudio/best[height<=480]/best', 'play');
 }
 
-async function getDownloadStreamUrl(videoId) {
+async function getDownloadStreamUrl(rawTarget) {
+  const videoId = typeof rawTarget === 'object' && rawTarget !== null && rawTarget.id ? String(rawTarget.id).trim() : String(rawTarget || '').trim();
   const now = Date.now();
   const cachedPlay = streamCache.get(`play:${videoId}`);
   if (cachedPlay && cachedPlay.expireAt > now) {
@@ -506,7 +535,15 @@ async function getDownloadStreamUrl(videoId) {
   return extractStreamUrlWithFormat(videoId, 'bestaudio[ext=m4a]/bestaudio[ext=mp4]/bestaudio', 'dl');
 }
 
-async function getStreamUrl(videoId) {
+async function getStreamUrl(rawTarget) {
+  const videoId = typeof rawTarget === 'object' && rawTarget !== null && rawTarget.id ? String(rawTarget.id).trim() : String(rawTarget || '').trim();
+  if (!videoId) throw new Error('Video ID is required');
+
+  const cachedFile = findCachedAudioFile(videoId);
+  if (cachedFile) {
+    return await getLocalFileStreamUrl(cachedFile);
+  }
+
   const [port, rawUrl] = await Promise.all([
     ensureStreamProxy(),
     getRawStreamUrl(videoId)
@@ -616,5 +653,7 @@ module.exports = {
   getYtDlpPath,
   ensureYtDlpBinary,
   syncNetscapeCookies,
-  getNetscapeCookiesFile
+  getNetscapeCookiesFile,
+  getAudioCacheDir,
+  findCachedAudioFile
 };
