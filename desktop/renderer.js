@@ -691,6 +691,13 @@ async function openArtistByNameOrId(artistId, artistName, onBeforeNavigate = nul
       }
     }
 
+    if (!Array.isArray(candidates) || candidates.length === 0) {
+      const allRes = await window.api.search(queryUsed, 'all');
+      if (Array.isArray(allRes?.artists) && allRes.artists.length > 0) {
+        candidates = allRes.artists;
+      }
+    }
+
     if (Array.isArray(candidates) && candidates.length > 0) {
       const targetLower = queryUsed.toLowerCase();
       const exactMatch = candidates.find(a => (a?.name || '').trim().toLowerCase() === targetLower && a?.id);
@@ -5027,8 +5034,7 @@ function renderKeepListening() {
     if (artist && i % 3 === 1 && !artistsShown.has(artist.toLowerCase())) {
       artistsShown.add(artist.toLowerCase());
       addTile('keep-artist', artist, 'Artist', track.thumbnail, () => {
-        searchInput.value = artist;
-        executeSearch(artist, 'all');
+        openArtistByNameOrId('', artist);
       }, i);
     }
   });
@@ -6081,9 +6087,13 @@ async function loadPlaylists({ skipDiskScan = false, ytPlaylistsOverride = null 
               if (targetPl.remoteId || targetPl.isImported || !String(targetPl.id || '').startsWith('local_dir_')) {
                 // Safely enrich matching existing tracks with offline file paths without altering IDs/titles/artists/cover
                 const scannedById = new Map((pl.tracks || []).map(t => [t.id, t]));
-                const scannedByTitle = new Map((pl.tracks || []).map(t => [String(t.title || '').toLowerCase(), t]));
+                const scannedByArtistTitle = new Map((pl.tracks || []).map(t => [
+                  `${cleanArtistName(t.artist || '').toLowerCase()}::${String(t.title || '').trim().toLowerCase()}`,
+                  t
+                ]));
                 for (const lt of (targetPl.tracks || [])) {
-                  const match = scannedById.get(lt.id) || scannedByTitle.get(String(lt.title || '').toLowerCase());
+                  const match = scannedById.get(lt.id) ||
+                    scannedByArtistTitle.get(`${cleanArtistName(lt.artist || '').toLowerCase()}::${String(lt.title || '').trim().toLowerCase()}`);
                   if (match) {
                     if (!lt.localFilePath && match.localFilePath) {
                       lt.localFilePath = match.localFilePath;

@@ -1830,13 +1830,26 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
   const rawSafeArtist = sanitizeFilename(track.artist || 'Unknown Artist');
   const safeTitle = sanitizeFilename(track.title || 'Track');
   const exts = ['.m4a', '.webm', '.opus', '.mp3', '.mp4', '.ogg'];
+  const hasKnownArtist = Boolean(cleanArt && cleanArt.toLowerCase() !== 'unknown artist');
+  const exactArtistTitleA = hasKnownArtist ? `${safeArtist} - ${safeTitle}`.toLowerCase() : '';
+  const exactArtistTitleB = hasKnownArtist ? `${rawSafeArtist} - ${safeTitle}`.toLowerCase() : '';
 
   const candidateNames = [
-    `${safeArtist} - ${safeTitle}`,
-    `${rawSafeArtist} - ${safeTitle}`,
-    `${safeTitle}`,
+    ...(hasKnownArtist ? [`${safeArtist} - ${safeTitle}`, `${rawSafeArtist} - ${safeTitle}`] : []),
     videoId
   ].filter(Boolean);
+
+  const isFileMatchingTrack = (fileName) => {
+    const lower = fileName.toLowerCase();
+    if (lower.endsWith('.cover.mp4') || !exts.some(e => lower.endsWith(e))) return false;
+    const idMatch = videoId.length > 4 && !videoId.startsWith('offline_') && fileName.includes(videoId);
+    if (idMatch) return true;
+    if (!hasKnownArtist) return false;
+    const ext = path.extname(fileName);
+    const rawBase = path.basename(fileName, ext);
+    const stripped = rawBase.replace(/^\d{1,4}\s*-\s*/, '').trim().toLowerCase();
+    return stripped === exactArtistTitleA || (exactArtistTitleB && stripped === exactArtistTitleB);
+  };
 
   const checkDirectAudioInDir = async (dir) => {
     for (const name of candidateNames) {
@@ -1862,11 +1875,7 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
         try {
           const files = await fsp.readdir(subDir);
           for (const file of files) {
-            const lower = file.toLowerCase();
-            if (lower.endsWith('.cover.mp4') || !exts.some(e => lower.endsWith(e))) continue;
-            const idMatch = videoId.length > 4 && file.includes(videoId);
-            const titleMatch = safeTitle.length > 3 && lower.includes(safeTitle.toLowerCase());
-            if (idMatch || titleMatch) {
+            if (isFileMatchingTrack(file)) {
               const fullPath = path.join(subDir, file);
               if ((await safeStatSize(fullPath)) > 32768) {
                 return await makeLocalTrackResponse(fullPath, videoId);
@@ -1875,11 +1884,7 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
           }
         } catch (_) {}
       } else if (ent.isFile()) {
-        const lower = ent.name.toLowerCase();
-        if (lower.endsWith('.cover.mp4') || !exts.some(e => lower.endsWith(e))) continue;
-        const idMatch = videoId.length > 4 && ent.name.includes(videoId);
-        const titleMatch = safeTitle.length > 3 && lower.includes(safeTitle.toLowerCase());
-        if (idMatch || titleMatch) {
+        if (isFileMatchingTrack(ent.name)) {
           const fullPath = path.join(rootDir, ent.name);
           if ((await safeStatSize(fullPath)) > 32768) {
             return await makeLocalTrackResponse(fullPath, videoId);
@@ -2129,6 +2134,7 @@ ipcMain.handle('scan-downloaded-playlists', async () => {
     ]);
     const thumbSet = new Set(thumbFiles);
     const metaById = new Map();
+    const metaByArtistTitle = new Map();
     const metaByLowerTitle = new Map();
 
     const jsonFiles = metaFiles.filter(mf => mf.endsWith('.json'));
@@ -2137,7 +2143,14 @@ ipcMain.handle('scan-downloaded-playlists', async () => {
         const mData = JSON.parse(await fsp.readFile(path.join(meta, mf), 'utf8'));
         const id = mData.id || path.basename(mf, '.json');
         if (id) metaById.set(id, mData);
-        if (mData.title) metaByLowerTitle.set(String(mData.title).trim().toLowerCase(), { id, data: mData });
+        if (mData.title) {
+          const normTitle = String(mData.title).trim().toLowerCase();
+          const normArtist = cleanArtistName(mData.artist || '').toLowerCase();
+          if (normArtist && normArtist !== 'unknown artist') {
+            metaByArtistTitle.set(`${normArtist}::${normTitle}`, { id, data: mData });
+          }
+          metaByLowerTitle.set(normTitle, { id, data: mData });
+        }
       } catch (_) {}
     });
 
@@ -2166,8 +2179,18 @@ ipcMain.handle('scan-downloaded-playlists', async () => {
           title = parts.slice(1).join(' - ').trim() || strippedBase;
         }
 
-        const matchedMeta = metaById.get(baseName) || metaByLowerTitle.get(title.toLowerCase())?.data || metaByLowerTitle.get(strippedBase.toLowerCase())?.data || null;
-        const matchedId = matchedMeta?.id || metaByLowerTitle.get(title.toLowerCase())?.id || metaByLowerTitle.get(strippedBase.toLowerCase())?.id || '';
+        const normParsedArtist = cleanArtistName(artist).toLowerCase();
+        const artistTitleHit = (normParsedArtist && normParsedArtist !== 'unknown artist')
+          ? (metaByArtistTitle.get(`${normParsedArtist}::${title.toLowerCase()}`) || null)
+          : null;
+        const titleOnlyFallback = (!normParsedArtist || normParsedArtist === 'unknown artist')
+          ? (metaByLowerTitle.get(title.toLowerCase()) || metaByLowerTitle.get(strippedBase.toLowerCase()) || null)
+          : null;
+        const matchedEntry = metaById.get(baseName)
+          ? { id: metaById.get(baseName).id || baseName, data: metaById.get(baseName) }
+          : (artistTitleHit || titleOnlyFallback);
+        const matchedMeta = matchedEntry?.data || null;
+        const matchedId = matchedEntry?.id || '';
         if (matchedMeta?.title) title = matchedMeta.title;
         if (matchedMeta?.artist) artist = matchedMeta.artist;
 
