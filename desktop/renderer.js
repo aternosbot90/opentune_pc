@@ -6604,11 +6604,25 @@ function openAddToPlaylistModal(track) {
   } else {
     localPls.forEach(pl => {
       const btn = document.createElement('button');
-      btn.className = 'btn-subtle';
-      btn.style.width = '100%';
-      btn.style.justifyContent = 'flex-start';
-      btn.style.padding = '10px 14px';
-      btn.textContent = pl.title;
+      btn.type = 'button';
+      btn.className = 'add-to-playlist-item';
+      const alreadyIn = Array.isArray(pl.tracks) && pl.tracks.some(t => t.id === track.id);
+      const thumbUrl = pl.thumbnail && !String(pl.thumbnail).includes('assets/icon.png')
+        ? upgradeCover(pl.thumbnail, 120)
+        : 'assets/icon.png';
+      const count = Array.isArray(pl.tracks) ? pl.tracks.length : 0;
+      btn.innerHTML = `
+        <img class="add-to-playlist-thumb" src="${thumbUrl}" alt="" onerror="this.onerror=null;this.src='assets/icon.png';">
+        <span class="add-to-playlist-meta">
+          <span class="add-to-playlist-name">${escapeHtmlSafe(pl.title || 'Untitled Playlist')}</span>
+          <span class="add-to-playlist-sub">${count} ${count === 1 ? 'track' : 'tracks'}${pl.remoteId && pl.autoSync !== false ? ' • Synced' : ''}</span>
+        </span>
+        <span class="add-to-playlist-status ${alreadyIn ? 'added' : ''}" title="${alreadyIn ? 'Already in playlist' : 'Add to playlist'}">
+          ${alreadyIn
+            ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>'
+            : '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>'}
+        </span>
+      `;
       btn.addEventListener('click', () => {
         pl.tracks = pl.tracks || [];
         if (!pl.tracks.some(t => t.id === track.id)) {
