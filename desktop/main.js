@@ -2156,16 +2156,19 @@ ipcMain.handle('scan-downloaded-playlists', async () => {
         if ((await safeStatSize(fullAudioPath)) < 30000) return;
 
         const baseName = path.basename(file, ext);
-        let title = baseName;
+        // Strip leading track index prefix (e.g. "01 - Artist - Title" -> "Artist - Title")
+        const strippedBase = baseName.replace(/^\d{1,4}\s*-\s*/, '').trim() || baseName;
+        let title = strippedBase;
         let artist = 'Unknown Artist';
-        if (baseName.includes(' - ')) {
-          const parts = baseName.split(' - ');
-          artist = parts[0].trim();
-          title = parts.slice(1).join(' - ').trim();
+        if (strippedBase.includes(' - ')) {
+          const parts = strippedBase.split(' - ');
+          artist = parts[0].trim() || 'Unknown Artist';
+          title = parts.slice(1).join(' - ').trim() || strippedBase;
         }
 
-        const matchedMeta = metaById.get(baseName) || metaByLowerTitle.get(title.toLowerCase())?.data || null;
-        const matchedId = matchedMeta?.id || metaByLowerTitle.get(title.toLowerCase())?.id || '';
+        const matchedMeta = metaById.get(baseName) || metaByLowerTitle.get(title.toLowerCase())?.data || metaByLowerTitle.get(strippedBase.toLowerCase())?.data || null;
+        const matchedId = matchedMeta?.id || metaByLowerTitle.get(title.toLowerCase())?.id || metaByLowerTitle.get(strippedBase.toLowerCase())?.id || '';
+        if (matchedMeta?.title) title = matchedMeta.title;
         if (matchedMeta?.artist) artist = matchedMeta.artist;
 
         const videoId = matchedId || `offline_${Buffer.from(file).toString('hex').slice(0, 11)}`;

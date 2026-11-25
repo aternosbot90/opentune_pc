@@ -5838,14 +5838,16 @@ async function syncLinkedPlaylist(localPlId, { quiet = true } = {}) {
     if (!remote || !Array.isArray(remote.tracks)) return false;
 
     const localTracks = pl.tracks || [];
-    const localIdSet = new Set(localTracks.map(t => t.id));
     const remoteTracks = remote.tracks;
     const remoteMap = new Map(remoteTracks.map(t => [t.id, t]));
     const remoteIdSet = new Set(remoteTracks.map(t => t.id));
     const baselineIds = new Set(pl.syncedIds || remoteTracks.map(t => t.id));
 
+    // Ignore corrupted offline_* synthetic IDs if a previous disk-scan polluted localTracks
+    const validLocalTracks = localTracks.filter(t => t && t.id && !String(t.id).startsWith('offline_'));
+
     // 1. Offline local additions -> push to YT Music
-    const addedOfflineIds = localTracks.map(t => t.id).filter(id => !remoteIdSet.has(id) && !baselineIds.has(id));
+    const addedOfflineIds = validLocalTracks.map(t => t.id).filter(id => !remoteIdSet.has(id) && !baselineIds.has(id));
     if (addedOfflineIds.length > 0) {
       try {
         await window.api.addToYtPlaylist({ playlistId: pl.remoteId, videoIds: addedOfflineIds });
@@ -5854,24 +5856,35 @@ async function syncLinkedPlaylist(localPlId, { quiet = true } = {}) {
       }
     }
 
-    // 2. Offline local removals -> remove from YT Music
-    const removedOfflineIds = [...baselineIds].filter(id => !localIdSet.has(id) && remoteIdSet.has(id));
+    // 2. Explicit offline local removals -> push ONLY user-initiated removals to YT Music
+    // Never infer mass deletions by diffing localTracks vs baselineIds (prevents wiping remote playlists if local data is corrupted/empty).
+    const pendingRemovals = Array.isArray(pl.pendingRemoteRemovals) ? pl.pendingRemoteRemovals : [];
+    const removedOfflineItems = pendingRemovals.filter(r => r && r.id && remoteIdSet.has(r.id));
+    const removedOfflineIds = removedOfflineItems.map(r => r.id);
     if (removedOfflineIds.length > 0) {
-      const setIds = removedOfflineIds.map(id => remoteMap.get(id)?.setVideoId).filter(Boolean);
+      const setIds = removedOfflineItems.map(r => r.setVideoId || remoteMap.get(r.id)?.setVideoId).filter(Boolean);
       try {
-        await window.api.removeFromYtPlaylist({ playlistId: pl.remoteId, videoIds: removedOfflineIds, setVideoIds: setIds });
+        const rmRes = await window.api.removeFromYtPlaylist({ playlistId: pl.remoteId, videoIds: removedOfflineIds, setVideoIds: setIds });
+        if (rmRes?.success !== false) {
+          const clearedSet = new Set(removedOfflineIds);
+          pl.pendingRemoteRemovals = pendingRemovals.filter(r => !clearedSet.has(r?.id));
+        }
       } catch (e) {
         if (!quiet) console.warn('Push offline removals notice:', e.message);
       }
+    } else if (pendingRemovals.length > 0) {
+      // Clean up pending removals that are already gone on remote
+      pl.pendingRemoteRemovals = pendingRemovals.filter(r => r && r.id && remoteIdSet.has(r.id));
     }
 
     // 3. Reconcile merged local list: keep local items unless removed on remote (was in baseline, now missing in remote)
-    let merged = localTracks.filter(t => !(baselineIds.has(t.id) && !remoteIdSet.has(t.id) && !addedOfflineIds.includes(t.id)));
+    const removedSet = new Set(removedOfflineIds);
+    let merged = validLocalTracks.filter(t => !removedSet.has(t.id) && !(baselineIds.has(t.id) && !remoteIdSet.has(t.id) && !addedOfflineIds.includes(t.id)));
     // Update setVideoIds & append tracks added remotely on YT Music
     const mergedIds = new Set(merged.map(t => t.id));
     merged = merged.map(t => remoteMap.get(t.id) ? { ...t, setVideoId: remoteMap.get(t.id).setVideoId || t.setVideoId } : t);
     for (const rt of remoteTracks) {
-      if (!mergedIds.has(rt.id) && !removedOfflineIds.includes(rt.id)) {
+      if (!mergedIds.has(rt.id) && !removedSet.has(rt.id)) {
         merged.push(rt);
         mergedIds.add(rt.id);
       }
@@ -5882,7 +5895,11 @@ async function syncLinkedPlaylist(localPlId, { quiet = true } = {}) {
 
     pl.tracks = merged;
     if (remote.title && remote.title !== 'Untitled Playlist') pl.title = remote.title;
-    if (remote.thumbnail && !remote.thumbnail.includes('assets/icon.png')) pl.thumbnail = remote.thumbnail;
+    if (remote.thumbnail && !remote.thumbnail.includes('assets/icon.png')) {
+      pl.thumbnail = remote.thumbnail;
+    } else if ((!pl.thumbnail || pl.thumbnail.includes('assets/icon.png')) && merged[0]?.thumbnail) {
+      pl.thumbnail = merged[0].thumbnail;
+    }
     pl.syncedIds = merged.map(t => t.id);
     pl.lastSyncedAt = Date.now();
     saveLocalPlaylists(pls);
@@ -5906,6 +5923,12 @@ async function removeTrackFromLocalPlaylist(localPlId, track) {
 
   pl.tracks = (pl.tracks || []).filter(t => t.id !== track.id);
   pl.syncedIds = (pl.syncedIds || []).filter(id => id !== track.id);
+  if (pl.remoteId && pl.autoSync !== false && track?.id && !String(track.id).startsWith('offline_')) {
+    pl.pendingRemoteRemovals = Array.isArray(pl.pendingRemoteRemovals) ? pl.pendingRemoteRemovals : [];
+    if (!pl.pendingRemoteRemovals.some(r => r.id === track.id)) {
+      pl.pendingRemoteRemovals.push({ id: track.id, setVideoId: track.setVideoId || '' });
+    }
+  }
   saveLocalPlaylists(pls);
 
   if (state.activePlaylistId === pl.id) {
@@ -5914,11 +5937,19 @@ async function removeTrackFromLocalPlaylist(localPlId, track) {
 
   if (pl.remoteId && pl.autoSync !== false) {
     try {
-      await window.api.removeFromYtPlaylist({
+      const rmRes = await window.api.removeFromYtPlaylist({
         playlistId: pl.remoteId,
         videoIds: [track.id],
         setVideoIds: track.setVideoId ? [track.setVideoId] : []
       });
+      if (rmRes?.success !== false) {
+        const latestPls = getLocalPlaylists();
+        const latestPl = latestPls.find(p => p.id === localPlId);
+        if (latestPl && Array.isArray(latestPl.pendingRemoteRemovals)) {
+          latestPl.pendingRemoteRemovals = latestPl.pendingRemoteRemovals.filter(r => r.id !== track.id);
+          saveLocalPlaylists(latestPls);
+        }
+      }
     } catch (e) {
       console.warn('Real-time remote track removal notice:', e.message);
     }
@@ -6045,14 +6076,36 @@ async function loadPlaylists({ skipDiskScan = false, ytPlaylistsOverride = null 
           for (const pl of scanned) {
             const idx = localPls.findIndex(p => p.id === pl.id || p.title.toLowerCase() === pl.title.toLowerCase());
             if (idx >= 0) {
-              const prevTracks = localPls[idx].tracks || [];
-              if (prevTracks.length !== pl.tracks.length || prevTracks[0]?.id !== pl.tracks[0]?.id) {
-                localPls[idx].tracks = pl.tracks;
-                localPls[idx].trackCount = pl.tracks.length;
-                if (pl.thumbnail && pl.thumbnail !== 'assets/icon.png') {
-                  localPls[idx].thumbnail = pl.thumbnail;
+              const targetPl = localPls[idx];
+              // NEVER overwrite a cloud-synced or imported playlist's tracks/cover with a folder scan!
+              if (targetPl.remoteId || targetPl.isImported || !String(targetPl.id || '').startsWith('local_dir_')) {
+                // Safely enrich matching existing tracks with offline file paths without altering IDs/titles/artists/cover
+                const scannedById = new Map((pl.tracks || []).map(t => [t.id, t]));
+                const scannedByTitle = new Map((pl.tracks || []).map(t => [String(t.title || '').toLowerCase(), t]));
+                for (const lt of (targetPl.tracks || [])) {
+                  const match = scannedById.get(lt.id) || scannedByTitle.get(String(lt.title || '').toLowerCase());
+                  if (match) {
+                    if (!lt.localFilePath && match.localFilePath) {
+                      lt.localFilePath = match.localFilePath;
+                      lt.isDownloaded = true;
+                      changed = true;
+                    }
+                    if (!lt.localThumbnail && match.localThumbnail) {
+                      lt.localThumbnail = match.localThumbnail;
+                      changed = true;
+                    }
+                  }
                 }
-                changed = true;
+              } else {
+                const prevTracks = targetPl.tracks || [];
+                if (prevTracks.length !== pl.tracks.length || prevTracks[0]?.id !== pl.tracks[0]?.id) {
+                  targetPl.tracks = pl.tracks;
+                  targetPl.trackCount = pl.tracks.length;
+                  if (pl.thumbnail && pl.thumbnail !== 'assets/icon.png') {
+                    targetPl.thumbnail = pl.thumbnail;
+                  }
+                  changed = true;
+                }
               }
             } else {
               localPls.unshift(pl);
