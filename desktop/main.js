@@ -43,6 +43,10 @@ if (process.platform === 'darwin' || process.platform === 'linux') {
 const streamService = require('./stream');
 const lyricsService = require('./lyrics');
 const ytMusic = require('./ytmusic');
+
+if (typeof streamService.setInnertubeProvider === 'function') {
+  streamService.setInnertubeProvider(() => ytMusic.getInnertube());
+}
 const animatedCoverService = require('./animated-cover');
 
 let autoUpdater = null;
@@ -631,14 +635,18 @@ ipcMain.handle('cancel-google-device-auth', async () => {
 ipcMain.handle('open-login-window', async () => {
   return new Promise((resolve) => {
     const authSession = session.fromPartition('persist:youtube_auth');
+    authSession.setUserAgent(CHROME_USER_AGENT);
 
-    // Strip Electron headers & client hints that trigger Google's "browser not secure" detection
+    const chPlatform = process.platform === 'darwin' ? '"macOS"' : (process.platform === 'win32' ? '"Windows"' : '"Linux"');
+
+    // Replace Electron headers & client hints with clean Chrome hints so Google Sign-In accepts the session
     authSession.webRequest.onBeforeSendHeaders((details, callback) => {
       details.requestHeaders['User-Agent'] = CHROME_USER_AGENT;
+      details.requestHeaders['sec-ch-ua'] = '"Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"';
+      details.requestHeaders['sec-ch-ua-mobile'] = '?0';
+      details.requestHeaders['sec-ch-ua-platform'] = chPlatform;
       delete details.requestHeaders['X-Requested-With'];
-      delete details.requestHeaders['sec-ch-ua'];
-      delete details.requestHeaders['sec-ch-ua-mobile'];
-      delete details.requestHeaders['sec-ch-ua-platform'];
+      delete details.requestHeaders['sec-ch-ua-full-version-list'];
       callback({ cancel: false, requestHeaders: details.requestHeaders });
     });
 
@@ -652,6 +660,7 @@ ipcMain.handle('open-login-window', async () => {
       autoHideMenuBar: true,
       webPreferences: {
         partition: 'persist:youtube_auth',
+        preload: path.join(__dirname, 'login-preload.js'),
         nodeIntegration: false,
         contextIsolation: true
       }
@@ -659,18 +668,8 @@ ipcMain.handle('open-login-window', async () => {
 
     loginWin.webContents.setUserAgent(CHROME_USER_AGENT);
 
-    // Remove automation flags in renderer context
-    loginWin.webContents.on('dom-ready', () => {
-      loginWin.webContents.executeJavaScript(`
-        try {
-          delete window.chrome;
-          Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-        } catch (_) {}
-      `).catch(() => {});
-    });
-
-    // Direct Google ServiceLogin continuing to YouTube Music (matches OpenTune Android LoginScreen.kt)
-    const loginUrl = 'https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fmusic.youtube.com';
+    // Navigate via YouTube Music sign-in flow rather than bare ServiceLogin
+    const loginUrl = 'https://accounts.google.com/AccountChooser?continue=https%3A%2F%2Fmusic.youtube.com%2F&hl=en';
     loginWin.loadURL(loginUrl);
 
     let isResolved = false;
@@ -704,6 +703,9 @@ ipcMain.handle('open-login-window', async () => {
 
           isResolved = true;
 
+          if (typeof streamService.syncNetscapeCookies === 'function') {
+            streamService.syncNetscapeCookies(cookieString);
+          }
           await ytMusic.getInnertube(cookieString);
           let profile = await ytMusic.getAccountProfile();
           if (!profile.isLoggedIn) {
@@ -755,6 +757,9 @@ ipcMain.handle('save-manual-cookie', async (_event, cookieString) => {
     const clean = (cookieString || '').trim();
     if (!clean) return { success: false, error: 'Cookie cannot be empty' };
 
+    if (typeof streamService.syncNetscapeCookies === 'function') {
+      streamService.syncNetscapeCookies(clean);
+    }
     await ytMusic.getInnertube(clean);
     let profile = await ytMusic.getAccountProfile();
     if (!profile.isLoggedIn) {

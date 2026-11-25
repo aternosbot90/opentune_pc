@@ -979,9 +979,11 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
   }
   const requestToken = ++state.playRequestToken;
 
-  // 1. Immediately pause previous audio so it NEVER plays over new song selections
+  // 1. Immediately stop & unload previous audio so it NEVER plays over new song selections
   try {
     audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
   } catch (_) {}
   state.isPlaying = false;
   state.isLoadingTrack = true;
@@ -1177,6 +1179,7 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
         audio.autoplay = true;
         audio.preload = 'auto';
         audio.src = res.url;
+        audio.load();
         audio.volume = state.isMuted ? 0 : state.volume;
         audio.playbackRate = currentPlaybackSpeed;
         if (options?.startTime && options.startTime > 0) {
@@ -1188,50 +1191,69 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
           if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
             eqAudioCtx.resume().catch(() => {});
           }
+          const onPlaySuccess = () => {
+            if (requestToken !== state.playRequestToken || isVideoMode) return;
+            state.isLoadingTrack = false;
+            state.isPlaying = true;
+            updatePlayPauseUI();
+            preloadAdjacentTracks();
+            if (typeof window.api.cacheTrackAudio === 'function') {
+              window.api.cacheTrackAudio(track).catch(() => {});
+            }
+          };
           const p = audio.play();
           if (p !== undefined) {
-            p.then(() => {
-              if (requestToken !== state.playRequestToken || isVideoMode) return;
-              state.isLoadingTrack = false;
-              state.isPlaying = true;
-              updatePlayPauseUI();
-              preloadAdjacentTracks();
-              if (typeof window.api.cacheTrackAudio === 'function') {
-                window.api.cacheTrackAudio(track).catch(() => {});
-              }
-            }).catch((err) => {
+            p.then(onPlaySuccess).catch((err) => {
               console.warn('Online audio play waiting for buffer:', err.message);
               let handled = false;
-              const onReady = () => {
-                if (handled) return;
-                handled = true;
+              const cleanup = () => {
                 audio.removeEventListener('canplay', onReady);
                 audio.removeEventListener('loadeddata', onReady);
-                if (requestToken !== state.playRequestToken || isVideoMode) return;
+                audio.removeEventListener('canplaythrough', onReady);
+              };
+              const onReady = () => {
+                if (handled) return;
+                if (requestToken !== state.playRequestToken || isVideoMode) {
+                  handled = true;
+                  cleanup();
+                  return;
+                }
+                if (audio.readyState < 2) return;
+                handled = true;
+                cleanup();
                 if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
                   eqAudioCtx.resume().catch(() => {});
                 }
-                audio.play().then(() => {
-                  if (requestToken !== state.playRequestToken || isVideoMode) return;
-                  state.isLoadingTrack = false;
-                  state.isPlaying = true;
-                  updatePlayPauseUI();
-                  preloadAdjacentTracks();
-                }).catch((err2) => {
+                audio.play().then(onPlaySuccess).catch((err2) => {
                   console.warn('Online play retry error:', err2.message);
                   if (requestToken !== state.playRequestToken) return;
                   state.isLoadingTrack = false;
                   state.isPlaying = false;
                   updatePlayPauseUI();
+                  if (settings.autoSkipOnError !== false && state.queue.length > 1) {
+                    setTimeout(() => { if (requestToken === state.playRequestToken && !state.isPlaying) btnNext?.click(); }, 900);
+                  }
                 });
               };
-              audio.addEventListener('canplay', onReady, { once: true });
-              audio.addEventListener('loadeddata', onReady, { once: true });
-              setTimeout(() => {
-                if (!handled && requestToken === state.playRequestToken && !state.isPlaying) {
-                  onReady();
-                }
-              }, 1200);
+              audio.addEventListener('canplay', onReady);
+              audio.addEventListener('loadeddata', onReady);
+              audio.addEventListener('canplaythrough', onReady);
+              if (audio.readyState >= 2) {
+                onReady();
+              } else {
+                setTimeout(() => {
+                  if (!handled) {
+                    handled = true;
+                    cleanup();
+                    if (requestToken === state.playRequestToken && !state.isPlaying && audio.readyState >= 2) {
+                      audio.play().then(onPlaySuccess).catch(() => {});
+                    } else if (requestToken === state.playRequestToken && !state.isPlaying) {
+                      state.isLoadingTrack = false;
+                      updatePlayPauseUI();
+                    }
+                  }
+                }, 12000);
+              }
             });
           }
         };
@@ -1530,12 +1552,15 @@ btnNext.addEventListener('click', () => {
   } else if (settings.autoplayRadio !== false && state.currentTrack) {
     // Autoplay Radio (fetches similar songs when end of queue reached)
     window.api.getUpNext(state.currentTrack.id).then(items => {
-      if (items && items.length > 0) {
+      const freshItems = Array.isArray(items)
+        ? items.filter(t => t && t.id && t.id !== state.currentTrack?.id)
+        : [];
+      if (freshItems.length > 0) {
         const startIdx = state.queue.length;
-        state.queue.push(...items);
+        state.queue.push(...freshItems);
         renderQueue();
         savePersistentQueue();
-        playTrack(items[0], null, startIdx);
+        playTrack(freshItems[0], null, startIdx);
       } else if (state.queue.length > 0) {
         playTrack(state.queue[0], null, 0);
       }

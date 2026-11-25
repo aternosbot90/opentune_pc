@@ -2222,28 +2222,49 @@ body[data-slider-style="simple"] .progress-thumb {
 }
 
 /* Google Authentication & Device Flow Styles */
+m3e-dialog.login-modal-dialog .modal-body {
+  overflow-x: hidden;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 .auth-tab-bar {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   background: var(--md-sys-color-surface-container-lowest);
   padding: 5px;
-  border-radius: var(--radius-full);
-  margin-bottom: 22px;
+  border-radius: 18px;
+  margin-bottom: 18px;
   border: 1px solid var(--md-sys-color-outline-variant);
 }
 
 .auth-tab-btn {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
+  font-size: 0.82rem;
 }
 
 .auth-pane {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.auth-pane p {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .device-auth-box {

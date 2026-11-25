@@ -10,6 +10,11 @@ try {
   electronApp = electron.app || null;
 } catch (_) {}
 
+let innertubeProvider = null;
+function setInnertubeProvider(fn) {
+  innertubeProvider = typeof fn === 'function' ? fn : null;
+}
+
 function getUserDataBinDir() {
   if (electronApp) {
     try {
@@ -259,6 +264,53 @@ function syncNetscapeCookies(cookieString) {
   }
 }
 
+async function extractStreamViaInnertube(videoId) {
+  if (!innertubeProvider || !videoId) return null;
+  let yt = null;
+  try {
+    yt = await innertubeProvider();
+  } catch (_) {
+    return null;
+  }
+  if (!yt) return null;
+
+  const clientsToTry = yt?.session?.logged_in ? ['TV', undefined, 'ANDROID', 'YTMUSIC'] : ['ANDROID', 'IOS', 'TV'];
+  for (const client of clientsToTry) {
+    try {
+      const info = client
+        ? await yt.getBasicInfo(videoId, { client })
+        : await yt.getBasicInfo(videoId);
+      const allFormats = [
+        ...(info?.streaming_data?.adaptive_formats || []),
+        ...(info?.streaming_data?.formats || [])
+      ].filter(f => f && f.has_audio);
+
+      if (allFormats.length === 0) continue;
+
+      allFormats.sort((a, b) => {
+        const aAudioOnly = a.has_video ? 0 : 1;
+        const bAudioOnly = b.has_video ? 0 : 1;
+        if (bAudioOnly !== aAudioOnly) return bAudioOnly - aAudioOnly;
+        return (b.bitrate || 0) - (a.bitrate || 0);
+      });
+
+      for (const fmt of allFormats) {
+        let url = fmt.url || '';
+        if (!url && typeof fmt.decipher === 'function') {
+          try {
+            url = await fmt.decipher(yt.session?.player);
+          } catch (_) {}
+        }
+        if (url && url.startsWith('http')) {
+          console.log(`[OpenTune] Resolved stream via authenticated Innertube (${client || 'default'}) for ${videoId}`);
+          return url;
+        }
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
 async function extractStreamUrlWithFormat(rawTarget, formatSelector = 'bestaudio/best[height<=480]/best', cachePrefix = 'play') {
   const videoId = typeof rawTarget === 'object' && rawTarget !== null && rawTarget.id ? String(rawTarget.id).trim() : String(rawTarget || '').trim();
   if (!videoId) throw new Error('Video ID is required for stream extraction');
@@ -310,19 +362,31 @@ async function extractStreamUrlWithFormat(rawTarget, formatSelector = 'bestaudio
       child.stdout.on('data', (d) => { stdout += d.toString(); });
       child.stderr.on('data', (d) => { stderr += d.toString(); });
 
-      child.on('close', (code) => {
+      child.on('close', async (code) => {
         clearTimeout(timeout);
         if (settled) return;
-        settled = true;
         if (code === 0) {
           const url = stdout.trim().split('\n')[0].trim();
           if (url && url.startsWith('http')) {
+            settled = true;
             streamCache.set(cacheKey, { url, expireAt: Date.now() + 4 * 3600 * 1000 });
             resolve(url);
             return;
           }
         }
-        reject(new Error(`Failed to extract audio stream for ${videoId}: ${stderr || 'Unknown error'}`));
+        try {
+          const itUrl = await extractStreamViaInnertube(videoId);
+          if (!settled && itUrl && itUrl.startsWith('http')) {
+            settled = true;
+            streamCache.set(cacheKey, { url: itUrl, expireAt: Date.now() + 4 * 3600 * 1000 });
+            resolve(itUrl);
+            return;
+          }
+        } catch (_) {}
+        if (!settled) {
+          settled = true;
+          reject(new Error(`Failed to extract audio stream for ${videoId}: ${stderr || 'Unknown error'}`));
+        }
       });
 
       child.on('error', (err) => {
@@ -655,5 +719,6 @@ module.exports = {
   syncNetscapeCookies,
   getNetscapeCookiesFile,
   getAudioCacheDir,
-  findCachedAudioFile
+  findCachedAudioFile,
+  setInnertubeProvider
 };
