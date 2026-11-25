@@ -1863,7 +1863,7 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
           const files = await fsp.readdir(subDir);
           for (const file of files) {
             const lower = file.toLowerCase();
-            if (!exts.some(e => lower.endsWith(e))) continue;
+            if (lower.endsWith('.cover.mp4') || !exts.some(e => lower.endsWith(e))) continue;
             const idMatch = videoId.length > 4 && file.includes(videoId);
             const titleMatch = safeTitle.length > 3 && lower.includes(safeTitle.toLowerCase());
             if (idMatch || titleMatch) {
@@ -1876,7 +1876,7 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
         } catch (_) {}
       } else if (ent.isFile()) {
         const lower = ent.name.toLowerCase();
-        if (!exts.some(e => lower.endsWith(e))) continue;
+        if (lower.endsWith('.cover.mp4') || !exts.some(e => lower.endsWith(e))) continue;
         const idMatch = videoId.length > 4 && ent.name.includes(videoId);
         const titleMatch = safeTitle.length > 3 && lower.includes(safeTitle.toLowerCase());
         if (idMatch || titleMatch) {
@@ -2147,7 +2147,7 @@ ipcMain.handle('scan-downloaded-playlists', async () => {
       if (folderName === 'bin' || folderName === 'offline_assets') continue;
       const subDir = path.join(rootDir, folderName);
       const subFiles = await fsp.readdir(subDir).catch(() => []);
-      const candidateFiles = subFiles.filter(file => audioExts.has(path.extname(file).toLowerCase()));
+      const candidateFiles = subFiles.filter(file => !file.toLowerCase().endsWith('.cover.mp4') && audioExts.has(path.extname(file).toLowerCase()));
       const trackSlots = new Array(candidateFiles.length);
 
       await runBatched(candidateFiles.map((file, idx) => ({ file, idx })), 40, async ({ file, idx }) => {
