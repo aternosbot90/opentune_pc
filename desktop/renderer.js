@@ -255,6 +255,8 @@ function navigateTo(viewName, addToHistory = true) {
     loadHistory();
   } else if (viewName === 'stats') {
     loadStats();
+  } else if (viewName === 'settings') {
+    initCustomSelects();
   }
 }
 
@@ -440,6 +442,7 @@ function applyThemeRgbAccent(r, g, b, isDynamic = false) {
 // Dynamic Ambient Color Extractor (matches OpenTune Android PlayerColorExtractor.kt)
 function extractAlbumColors(imgUrl) {
   if (!imgUrl || !settings.dynamicTheme) return;
+  const sampleUrl = /^https?:\/\//i.test(imgUrl) ? upgradeCover(imgUrl, 120) : imgUrl;
   const img = new Image();
   img.crossOrigin = 'Anonymous';
   img.onload = () => {
@@ -466,7 +469,7 @@ function extractAlbumColors(imgUrl) {
     } catch (_) {}
   };
   img.onerror = () => {};
-  img.src = imgUrl;
+  img.src = sampleUrl;
 }
 
 // Listening History & Analytics Tracking Engine
@@ -2559,6 +2562,36 @@ const lyricsSearchSubmitBtn = document.getElementById('lyrics-search-submit-btn'
 const lyricsSearchResultsList = document.getElementById('lyrics-search-results-list');
 const lyricsSearchStatus = document.getElementById('lyrics-search-status');
 
+function openAppDialog(el) {
+  if (!el) return;
+  if (typeof el.show === 'function') {
+    el.style.display = '';
+    el.open = true;
+    el.show();
+  } else {
+    el.style.display = 'flex';
+  }
+}
+
+function closeAppDialog(el) {
+  if (!el) return;
+  if (typeof el.hide === 'function') {
+    el.hide();
+    el.open = false;
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function isAppDialogOpen(el) {
+  if (!el) return false;
+  if (typeof el.show === 'function') {
+    return Boolean(el.open || el.shadowRoot?.querySelector('dialog[open]'));
+  }
+  return el.style.display === 'flex';
+}
+
 function openLyricsSearchModal() {
   if (!lyricsSearchModal) return;
   const defaultQuery = state.currentTrack ? `${state.currentTrack.title} ${state.currentTrack.artist}`.replace(/Unknown (Title|Artist)/gi, '').trim() : '';
@@ -2567,7 +2600,7 @@ function openLyricsSearchModal() {
   }
   if (lyricsSearchResultsList) lyricsSearchResultsList.innerHTML = '';
   if (lyricsSearchStatus) lyricsSearchStatus.style.display = 'none';
-  lyricsSearchModal.style.display = 'flex';
+  openAppDialog(lyricsSearchModal);
   lyricsSearchQueryInput?.focus();
   if (defaultQuery) {
     executeLyricsSearch(defaultQuery);
@@ -2575,7 +2608,7 @@ function openLyricsSearchModal() {
 }
 
 function closeLyricsSearchModal() {
-  if (lyricsSearchModal) lyricsSearchModal.style.display = 'none';
+  closeAppDialog(lyricsSearchModal);
 }
 
 async function executeLyricsSearch(query) {
@@ -2678,12 +2711,12 @@ function openLyricsEditModal() {
     lyricsEditTextarea.value = state.rawLyricsText || '';
   }
   updateOffsetDisplay();
-  lyricsEditModal.style.display = 'flex';
+  openAppDialog(lyricsEditModal);
   lyricsEditTextarea?.focus();
 }
 
 function closeLyricsEditModal() {
-  if (lyricsEditModal) lyricsEditModal.style.display = 'none';
+  closeAppDialog(lyricsEditModal);
 }
 
 document.getElementById('lyrics-offset-minus')?.addEventListener('click', () => {
@@ -4330,11 +4363,14 @@ document.getElementById('btn-back-from-artist')?.addEventListener('click', () =>
   }
 });
 
+const RENDERER_BOOT_TS = Date.now();
 const statsPrefetchQueue = [];
 let isProcessingStatsQueue = false;
+let statsPrefetchWarmupTimer = null;
 
 function enqueueTrackStatsPrefetch(track) {
-  if (!track || !track.id) return;
+  if (!track || !track.id || !navigator.onLine) return;
+  if (statsPrefetchQueue.length >= 100) return;
   try {
     const raw = localStorage.getItem('opentune_track_stats_' + track.id);
     if (raw) {
@@ -4345,31 +4381,32 @@ function enqueueTrackStatsPrefetch(track) {
   if (statsPrefetchQueue.some(t => t.id === track.id)) return;
   statsPrefetchQueue.push(track);
   if (!isProcessingStatsQueue) {
-    processStatsPrefetchQueue();
+    const bootRemaining = Math.max(0, 2600 - (Date.now() - RENDERER_BOOT_TS));
+    if (bootRemaining > 0) {
+      if (!statsPrefetchWarmupTimer) {
+        statsPrefetchWarmupTimer = setTimeout(() => {
+          statsPrefetchWarmupTimer = null;
+          processStatsPrefetchQueue();
+        }, bootRemaining);
+      }
+    } else {
+      processStatsPrefetchQueue();
+    }
   }
 }
 
 async function processStatsPrefetchQueue() {
-  if (statsPrefetchQueue.length === 0) {
+  if (statsPrefetchQueue.length === 0 || !navigator.onLine) {
     isProcessingStatsQueue = false;
     return;
   }
   isProcessingStatsQueue = true;
-  const batch = statsPrefetchQueue.splice(0, 5);
+  const batch = statsPrefetchQueue.splice(0, 3);
   await Promise.allSettled(batch.map(async (t) => {
     try {
       let stats = null;
       if (typeof window.api?.getFastTrackStats === 'function') {
         stats = await window.api.getFastTrackStats(t.id);
-      }
-      if (!stats) {
-        stats = await window.api.getTrackDetails(t.id, {
-          title: t.title,
-          artist: t.artist,
-          album: t.album,
-          thumbnail: t.thumbnail,
-          forStatsOnly: true
-        });
       }
       if (stats && !stats.error && (stats.views || stats.likes)) {
         try { localStorage.setItem('opentune_track_stats_' + t.id, JSON.stringify(stats)); } catch (_) {}
@@ -4377,7 +4414,7 @@ async function processStatsPrefetchQueue() {
       }
     } catch (_) {}
   }));
-  setTimeout(processStatsPrefetchQueue, 200);
+  setTimeout(processStatsPrefetchQueue, 350);
 }
 
 function updateTrackRowStats(trackId, stats) {
@@ -5140,6 +5177,43 @@ function renderHomeFeedSections(feed) {
   }
 }
 
+let _sharedProfileInflight = null;
+let _sharedProfileCache = { data: null, fetchedAt: 0 };
+let _sharedLibraryInflight = null;
+let _sharedLibraryCache = { data: null, fetchedAt: 0 };
+
+async function getSharedAccountProfile(forceRefresh = false) {
+  if (!forceRefresh && _sharedProfileCache.data && (Date.now() - _sharedProfileCache.fetchedAt) < 10000) {
+    return _sharedProfileCache.data;
+  }
+  if (_sharedProfileInflight) return await _sharedProfileInflight;
+  _sharedProfileInflight = window.api.getAccountProfile()
+    .then((res) => {
+      _sharedProfileCache = { data: res, fetchedAt: Date.now() };
+      return res;
+    })
+    .finally(() => {
+      _sharedProfileInflight = null;
+    });
+  return await _sharedProfileInflight;
+}
+
+async function getSharedLibrary(forceRefresh = false) {
+  if (!forceRefresh && _sharedLibraryCache.data && (Date.now() - _sharedLibraryCache.fetchedAt) < 8000) {
+    return _sharedLibraryCache.data;
+  }
+  if (_sharedLibraryInflight) return await _sharedLibraryInflight;
+  _sharedLibraryInflight = window.api.getLibrary()
+    .then((res) => {
+      _sharedLibraryCache = { data: res, fetchedAt: Date.now() };
+      return res;
+    })
+    .finally(() => {
+      _sharedLibraryInflight = null;
+    });
+  return await _sharedLibraryInflight;
+}
+
 // Home Feed with YouTube Music Account Playlists, Recommendations & Taste Profile
 async function loadHomeFeed() {
   const quickPicks = document.getElementById('home-quick-picks');
@@ -5169,16 +5243,21 @@ async function loadHomeFeed() {
   const offlineInd = document.getElementById('offline-mode-indicator');
   if (offlineInd) offlineInd.style.display = navigator.onLine ? 'none' : 'inline-flex';
 
+  // Let initial UI frame paint cleanly before starting online network fetches
+  await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+
   // 2. Showcase user's connected YouTube Music Playlists & Library
   if (navigator.onLine) {
     try {
-      const profile = await window.api.getAccountProfile();
+      const profile = await getSharedAccountProfile();
       if (profile && profile.isLoggedIn && userPlaylistsSec && userPlaylistsGrid) {
-        const lib = await window.api.getLibrary();
+        const lib = await getSharedLibrary();
         const playlists = lib.playlists || [];
         if (playlists.length > 0) {
+          const frag = document.createDocumentFragment();
+          playlists.slice(0, 12).forEach((pl) => frag.appendChild(createPlaylistCard(pl)));
           userPlaylistsGrid.innerHTML = '';
-          playlists.slice(0, 12).forEach((pl) => userPlaylistsGrid.appendChild(createPlaylistCard(pl)));
+          userPlaylistsGrid.appendChild(frag);
           userPlaylistsSec.style.display = 'block';
         } else {
           userPlaylistsSec.style.display = 'none';
@@ -5457,9 +5536,13 @@ function loadStats() {
 }
 
 // Playlists Hub (Local + YouTube Music)
+let _lastSavedLocalPlaylistsJson = null;
+
 function getLocalPlaylists() {
   try {
-    return JSON.parse(localStorage.getItem('opentune_local_playlists') || '[]');
+    const raw = localStorage.getItem('opentune_local_playlists') || '[]';
+    _lastSavedLocalPlaylistsJson = raw;
+    return JSON.parse(raw);
   } catch (_) {
     return [];
   }
@@ -5467,7 +5550,10 @@ function getLocalPlaylists() {
 
 function saveLocalPlaylists(pls) {
   try {
-    localStorage.setItem('opentune_local_playlists', JSON.stringify(pls));
+    const serialized = JSON.stringify(pls);
+    if (serialized === _lastSavedLocalPlaylistsJson) return;
+    localStorage.setItem('opentune_local_playlists', serialized);
+    _lastSavedLocalPlaylistsJson = serialized;
   } catch (e) {
     console.error('Failed to save playlists to localStorage:', e);
     if (typeof showToast === 'function') {
@@ -5941,87 +6027,116 @@ function renderPlaylistsSections(localPls, ytPlaylists) {
   });
 }
 
-async function loadPlaylists() {
+async function loadPlaylists({ skipDiskScan = false, ytPlaylistsOverride = null } = {}) {
   const container = document.getElementById('playlists-grid');
   if (!container) return;
 
-  // 1. Automatically discover downloaded playlists from disk and merge into local playlists
-  try {
-    if (typeof window.api?.scanDownloadedPlaylists === 'function') {
-      const scanned = await window.api.scanDownloadedPlaylists();
-      if (Array.isArray(scanned) && scanned.length > 0) {
-        const localPls = getLocalPlaylists();
-        let changed = false;
-        for (const pl of scanned) {
-          const idx = localPls.findIndex(p => p.id === pl.id || p.title.toLowerCase() === pl.title.toLowerCase());
-          if (idx >= 0) {
-            if (localPls[idx].tracks.length !== pl.tracks.length) {
-              localPls[idx].tracks = pl.tracks;
-              localPls[idx].trackCount = pl.tracks.length;
+  if (!skipDiskScan) {
+    // 1. Automatically discover downloaded playlists from disk and merge into local playlists
+    try {
+      if (typeof window.api?.scanDownloadedPlaylists === 'function') {
+        const scanned = await window.api.scanDownloadedPlaylists();
+        if (Array.isArray(scanned) && scanned.length > 0) {
+          const localPls = getLocalPlaylists();
+          let changed = false;
+          for (const pl of scanned) {
+            const idx = localPls.findIndex(p => p.id === pl.id || p.title.toLowerCase() === pl.title.toLowerCase());
+            if (idx >= 0) {
+              const prevTracks = localPls[idx].tracks || [];
+              if (prevTracks.length !== pl.tracks.length || prevTracks[0]?.id !== pl.tracks[0]?.id) {
+                localPls[idx].tracks = pl.tracks;
+                localPls[idx].trackCount = pl.tracks.length;
+                if (pl.thumbnail && pl.thumbnail !== 'assets/icon.png') {
+                  localPls[idx].thumbnail = pl.thumbnail;
+                }
+                changed = true;
+              }
+            } else {
+              localPls.unshift(pl);
               changed = true;
             }
-          } else {
-            localPls.unshift(pl);
-            changed = true;
+          }
+          if (changed) saveLocalPlaylists(localPls);
+        }
+      }
+    } catch (_) {}
+
+    // 2. Automatically discover cached songs from disk and expose "Offline Cached Music" playlist
+    try {
+      if (typeof window.api?.getCachedTracks === 'function') {
+        const cachedTracks = await window.api.getCachedTracks();
+        if (Array.isArray(cachedTracks) && cachedTracks.length > 0) {
+          const localPls = getLocalPlaylists();
+          const cachePlIdx = localPls.findIndex(p => p.id === 'offline_cached_music_playlist');
+          const prevCache = cachePlIdx >= 0 ? localPls[cachePlIdx] : null;
+          const prevList = prevCache?.tracks || [];
+          const nextThumb = cachedTracks[0].localThumbnail || cachedTracks[0].thumbnail || 'assets/icon.png';
+          const isUnchanged = prevCache &&
+            prevList.length === cachedTracks.length &&
+            prevList[0]?.id === cachedTracks[0]?.id &&
+            prevList[prevList.length - 1]?.id === cachedTracks[cachedTracks.length - 1]?.id &&
+            prevCache.thumbnail === nextThumb;
+
+          if (!isUnchanged) {
+            const cachePl = {
+              id: 'offline_cached_music_playlist',
+              title: 'Offline Cached Music',
+              author: 'OpenTune Disk Cache',
+              trackCount: cachedTracks.length,
+              tracks: cachedTracks,
+              thumbnail: nextThumb,
+              isLocal: true,
+              isCached: true
+            };
+            if (cachePlIdx >= 0) {
+              localPls[cachePlIdx] = cachePl;
+            } else {
+              localPls.unshift(cachePl);
+            }
+            saveLocalPlaylists(localPls);
           }
         }
-        if (changed) saveLocalPlaylists(localPls);
       }
-    }
-  } catch (_) {}
+    } catch (_) {}
+  }
 
-  // 2. Automatically discover cached songs from disk and expose "Offline Cached Music" playlist
-  try {
-    if (typeof window.api?.getCachedTracks === 'function') {
-      const cachedTracks = await window.api.getCachedTracks();
-      if (Array.isArray(cachedTracks) && cachedTracks.length > 0) {
-        const localPls = getLocalPlaylists();
-        const cachePlIdx = localPls.findIndex(p => p.id === 'offline_cached_music_playlist');
-        const cachePl = {
-          id: 'offline_cached_music_playlist',
-          title: 'Offline Cached Music',
-          author: 'OpenTune Disk Cache',
-          trackCount: cachedTracks.length,
-          tracks: cachedTracks,
-          thumbnail: cachedTracks[0].localThumbnail || cachedTracks[0].thumbnail || 'assets/icon.png',
-          isLocal: true,
-          isCached: true
-        };
-        if (cachePlIdx >= 0) {
-          localPls[cachePlIdx] = cachePl;
-        } else {
-          localPls.unshift(cachePl);
-        }
-        saveLocalPlaylists(localPls);
-      }
-    }
-  } catch (_) {}
-
+  const playlistsViewActive = document.getElementById('view-playlists')?.classList.contains('active');
   const localPls = getLocalPlaylists();
-  if (cachedYtPlaylists.length > 0) {
-    renderPlaylistsSections(localPls, cachedYtPlaylists);
-  } else {
-    container.innerHTML = '<div class="spinner"></div>';
+  if (playlistsViewActive) {
+    if (cachedYtPlaylists.length > 0) {
+      renderPlaylistsSections(localPls, cachedYtPlaylists);
+    } else if (localPls.length === 0) {
+      container.innerHTML = '<div class="spinner"></div>';
+    } else {
+      renderPlaylistsSections(localPls, cachedYtPlaylists);
+    }
   }
 
-  let ytPlaylists = cachedYtPlaylists;
-  if (navigator.onLine) {
-    try {
-      const lib = await window.api.getLibrary();
-      if (Array.isArray(lib?.playlists)) {
-        ytPlaylists = lib.playlists;
+  let ytPlaylists = Array.isArray(ytPlaylistsOverride) ? ytPlaylistsOverride : cachedYtPlaylists;
+  if (!Array.isArray(ytPlaylistsOverride)) {
+    if (navigator.onLine) {
+      try {
+        const lib = await getSharedLibrary();
+        if (Array.isArray(lib?.playlists)) {
+          ytPlaylists = lib.playlists;
+          cachedYtPlaylists = ytPlaylists;
+          try { localStorage.setItem('opentune_cached_yt_playlists', JSON.stringify(ytPlaylists)); } catch (_) {}
+        }
+      } catch (_) {}
+    } else {
+      try {
+        ytPlaylists = JSON.parse(localStorage.getItem('opentune_cached_yt_playlists') || '[]');
         cachedYtPlaylists = ytPlaylists;
-        try { localStorage.setItem('opentune_cached_yt_playlists', JSON.stringify(ytPlaylists)); } catch (_) {}
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
   } else {
-    try {
-      ytPlaylists = JSON.parse(localStorage.getItem('opentune_cached_yt_playlists') || '[]');
-      cachedYtPlaylists = ytPlaylists;
-    } catch (_) {}
+    cachedYtPlaylists = ytPlaylistsOverride;
+    try { localStorage.setItem('opentune_cached_yt_playlists', JSON.stringify(ytPlaylistsOverride)); } catch (_) {}
   }
 
-  renderPlaylistsSections(getLocalPlaylists(), ytPlaylists);
+  if (playlistsViewActive || !skipDiskScan) {
+    renderPlaylistsSections(getLocalPlaylists(), ytPlaylists);
+  }
 }
 
 function renderPlaylistTrackList(tracks, isLocal, totalCount = null) {
@@ -6283,15 +6398,15 @@ document.getElementById('btn-back-to-playlists')?.addEventListener('click', () =
 // Create Playlist Modal
 const createPlModal = document.getElementById('create-playlist-modal');
 document.getElementById('btn-create-playlist-open')?.addEventListener('click', () => {
-  if (createPlModal) createPlModal.style.display = 'flex';
+  openAppDialog(createPlModal);
 });
 
 document.getElementById('create-playlist-modal-close')?.addEventListener('click', () => {
-  if (createPlModal) createPlModal.style.display = 'none';
+  closeAppDialog(createPlModal);
 });
 
 document.getElementById('create-playlist-cancel-btn')?.addEventListener('click', () => {
-  if (createPlModal) createPlModal.style.display = 'none';
+  closeAppDialog(createPlModal);
 });
 
 document.getElementById('create-playlist-confirm-btn')?.addEventListener('click', () => {
@@ -6318,7 +6433,7 @@ document.getElementById('create-playlist-confirm-btn')?.addEventListener('click'
 
   if (nameInput) nameInput.value = '';
   if (descInput) descInput.value = '';
-  if (createPlModal) createPlModal.style.display = 'none';
+  closeAppDialog(createPlModal);
 
   loadPlaylists();
 });
@@ -6330,7 +6445,7 @@ const importPlStatus = document.getElementById('import-playlist-status');
 
 document.getElementById('btn-import-yt-playlist-open')?.addEventListener('click', () => {
   if (importPlModal) {
-    importPlModal.style.display = 'flex';
+    openAppDialog(importPlModal);
     if (importPlInput) {
       importPlInput.value = '';
       importPlInput.focus();
@@ -6340,11 +6455,11 @@ document.getElementById('btn-import-yt-playlist-open')?.addEventListener('click'
 });
 
 document.getElementById('import-playlist-modal-close')?.addEventListener('click', () => {
-  if (importPlModal) importPlModal.style.display = 'none';
+  closeAppDialog(importPlModal);
 });
 
 document.getElementById('import-playlist-cancel-btn')?.addEventListener('click', () => {
-  if (importPlModal) importPlModal.style.display = 'none';
+  closeAppDialog(importPlModal);
 });
 
 document.getElementById('btn-sync-yt-playlists')?.addEventListener('click', async () => {
@@ -6406,7 +6521,7 @@ document.getElementById('import-playlist-confirm-btn')?.addEventListener('click'
     pls.unshift(newPl);
     saveLocalPlaylists(pls);
 
-    if (importPlModal) importPlModal.style.display = 'none';
+    closeAppDialog(importPlModal);
     loadPlaylists();
     openPlaylistDetail(newPl, true);
   } catch (err) {
@@ -6461,17 +6576,17 @@ function openAddToPlaylistModal(track) {
             }).catch(() => {});
           }
         }
-        modal.style.display = 'none';
+        closeAppDialog(modal);
       });
       list.appendChild(btn);
     });
   }
 
-  modal.style.display = 'flex';
+  openAppDialog(modal);
 }
 
 document.getElementById('add-to-playlist-close')?.addEventListener('click', () => {
-  document.getElementById('add-to-playlist-modal').style.display = 'none';
+  closeAppDialog(document.getElementById('add-to-playlist-modal'));
 });
 
 // Fullscreen Now Playing Overlay Logic
@@ -6668,6 +6783,10 @@ function setNowPlayingTab(tabName) {
       setTimeout(() => refreshLyricsViewsNow(true), 80);
     });
   }
+  requestAnimationFrame(() => {
+    invalidateWaveMetrics();
+    refreshVisualFrame(true);
+  });
 }
 
 function setSongVideoMode(mode) {
@@ -6990,7 +7109,7 @@ async function openCommentsModal() {
     showToast('Select a song to view comments');
     return;
   }
-  if (commentsModal) commentsModal.style.display = 'flex';
+  openAppDialog(commentsModal);
   if (commentsList) commentsList.innerHTML = '<div class="comments-loading">Loading comments...</div>';
   if (commentStatusMsg) {
     commentStatusMsg.textContent = '';
@@ -7091,10 +7210,10 @@ async function postCommentAction() {
 document.getElementById('np-comments-btn')?.addEventListener('click', openCommentsModal);
 document.getElementById('np-quick-comments-btn')?.addEventListener('click', openCommentsModal);
 commentsModalClose?.addEventListener('click', () => {
-  if (commentsModal) commentsModal.style.display = 'none';
+  closeAppDialog(commentsModal);
 });
 commentsModal?.addEventListener('click', (e) => {
-  if (e.target === commentsModal) commentsModal.style.display = 'none';
+  if (e.target === commentsModal) closeAppDialog(commentsModal);
 });
 commentPostBtn?.addEventListener('click', postCommentAction);
 
@@ -7130,7 +7249,7 @@ async function openSongInfoModal(targetTrack = null) {
     showToast('Select a song to view stats & info');
     return;
   }
-  if (songInfoModal) songInfoModal.style.display = 'flex';
+  openAppDialog(songInfoModal);
 
   const titleEl = document.getElementById('info-track-title');
   const artistEl = document.getElementById('info-track-artist');
@@ -7264,10 +7383,10 @@ async function openSongInfoModal(targetTrack = null) {
 document.getElementById('np-track-format-pill')?.addEventListener('click', openSongInfoModal);
 document.getElementById('np-quick-info-btn')?.addEventListener('click', openSongInfoModal);
 songInfoModalClose?.addEventListener('click', () => {
-  if (songInfoModal) songInfoModal.style.display = 'none';
+  closeAppDialog(songInfoModal);
 });
 songInfoModal?.addEventListener('click', (e) => {
-  if (e.target === songInfoModal) songInfoModal.style.display = 'none';
+  if (e.target === songInfoModal) closeAppDialog(songInfoModal);
 });
 
 // Sleep Timer System (Matching OpenTune Android SleepTimer)
@@ -7329,19 +7448,19 @@ function setSleepTimer(val) {
 
 const sleepModal = document.getElementById('sleep-timer-modal');
 document.getElementById('player-sleep-btn')?.addEventListener('click', () => {
-  if (sleepModal) sleepModal.style.display = 'flex';
+  openAppDialog(sleepModal);
 });
 document.getElementById('np-sleep-btn')?.addEventListener('click', () => {
-  if (sleepModal) sleepModal.style.display = 'flex';
+  openAppDialog(sleepModal);
 });
 document.getElementById('sleep-timer-modal-close')?.addEventListener('click', () => {
-  if (sleepModal) sleepModal.style.display = 'none';
+  closeAppDialog(sleepModal);
 });
 
 document.querySelectorAll('.sleep-option-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     setSleepTimer(btn.dataset.minutes);
-    if (sleepModal) sleepModal.style.display = 'none';
+    closeAppDialog(sleepModal);
   });
 });
 
@@ -7367,7 +7486,7 @@ function syncTweakerUI() {
 }
 
 function openSpeedPitchModal() {
-  if (speedPitchModal) speedPitchModal.style.display = 'flex';
+  openAppDialog(speedPitchModal);
   syncTweakerUI();
 }
 
@@ -7432,10 +7551,10 @@ document.querySelectorAll('.preset-chip').forEach(btn => {
 document.getElementById('player-speed-btn')?.addEventListener('click', openSpeedPitchModal);
 document.getElementById('np-speed-btn')?.addEventListener('click', openSpeedPitchModal);
 speedPitchModalClose?.addEventListener('click', () => {
-  if (speedPitchModal) speedPitchModal.style.display = 'none';
+  closeAppDialog(speedPitchModal);
 });
 speedPitchModal?.addEventListener('click', (e) => {
-  if (e.target === speedPitchModal) speedPitchModal.style.display = 'none';
+  if (e.target === speedPitchModal) closeAppDialog(speedPitchModal);
 });
 
 // Google Sign-In & Login Modal (Device Auth + Webview + Cookie)
@@ -7508,7 +7627,7 @@ async function initDeviceAuth() {
       if (deviceAuthCode) deviceAuthCode.style.color = '#4caf50';
       updateAuthUI(res.profile);
       setTimeout(() => {
-        if (loginModal) loginModal.style.display = 'none';
+        closeAppDialog(loginModal);
       }, 1000);
     } else if (res && res.error) {
       if (deviceAuthStatusText) deviceAuthStatusText.textContent = `Notice: ${res.error}`;
@@ -7597,14 +7716,14 @@ function updateAuthUI(profile) {
 
 loginBtn.addEventListener('click', () => {
   if (loginModal) {
-    loginModal.style.display = 'flex';
+    openAppDialog(loginModal);
     if (modalStatusMsg) modalStatusMsg.style.display = 'none';
     setAuthTab('device');
   }
 });
 
 function closeLoginModal() {
-  if (loginModal) loginModal.style.display = 'none';
+  closeAppDialog(loginModal);
   if (deviceAuthActive) {
     window.api.cancelGoogleDeviceAuth();
     deviceAuthActive = false;
@@ -7625,7 +7744,7 @@ modalGoogleBtn?.addEventListener('click', async () => {
     const res = await window.api.openLoginWindow();
     if (res.success && res.profile) {
       updateAuthUI(res.profile);
-      if (loginModal) loginModal.style.display = 'none';
+      closeAppDialog(loginModal);
     } else if (res.cancelled) {
       showModalStatus('Sign-in window closed.', true);
     }
@@ -7645,7 +7764,7 @@ modalSaveCookieBtn?.addEventListener('click', async () => {
     const res = await window.api.saveManualCookie(cookie);
     if (res.success && res.profile) {
       updateAuthUI(res.profile);
-      if (loginModal) loginModal.style.display = 'none';
+      closeAppDialog(loginModal);
     } else {
       showModalStatus(res.error || 'Invalid cookie.', true);
     }
@@ -7675,7 +7794,7 @@ async function syncLibrary() {
   if (isLibrarySyncRunning) return;
   isLibrarySyncRunning = true;
   try {
-    const lib = await window.api.getLibrary();
+    const lib = await getSharedLibrary();
     if (Array.isArray(lib?.playlists)) {
       cachedYtPlaylists = lib.playlists;
     }
@@ -7690,7 +7809,10 @@ async function syncLibrary() {
       });
       if (addedAny) {
         localStorage.setItem('opentune_liked_songs', JSON.stringify(state.likedSongsData));
-        renderLikedSongs();
+        updateLibraryBentoCounts();
+        if (document.getElementById('view-liked')?.classList.contains('active')) {
+          renderLikedSongs();
+        }
       }
     }
 
@@ -7700,7 +7822,11 @@ async function syncLibrary() {
       await syncLinkedPlaylist(pl.id, { quiet: true });
     }
 
-    loadPlaylists();
+    const playlistsViewActive = document.getElementById('view-playlists')?.classList.contains('active');
+    await loadPlaylists({
+      skipDiskScan: !playlistsViewActive,
+      ytPlaylistsOverride: Array.isArray(lib?.playlists) ? lib.playlists : null
+    });
   } catch (err) {
     console.error('Library sync error:', err);
   } finally {
@@ -7914,12 +8040,11 @@ function openEqModal() {
   const modal = document.getElementById('eq-modal');
   if (!modal) return;
   renderEqBandsUI();
-  modal.style.display = 'flex';
+  openAppDialog(modal);
 }
 
 function closeEqModal() {
-  const modal = document.getElementById('eq-modal');
-  if (modal) modal.style.display = 'none';
+  closeAppDialog(document.getElementById('eq-modal'));
 }
 
 function initEqualizerUI() {
@@ -7979,7 +8104,7 @@ window.addEventListener('keydown', (e) => {
     closeEqModal();
     closeNowPlaying();
     const shortcutsModal = document.getElementById('shortcuts-modal');
-    if (shortcutsModal) shortcutsModal.style.display = 'none';
+    closeAppDialog(shortcutsModal);
     const ctx = document.getElementById('song-context-menu');
     if (ctx) ctx.style.display = 'none';
     return;
@@ -8030,7 +8155,7 @@ window.addEventListener('keydown', (e) => {
     }
   } else if (e.key === 'e' || e.key === 'E') {
     const eqModal = document.getElementById('eq-modal');
-    if (eqModal && eqModal.style.display === 'flex') closeEqModal();
+    if (isAppDialogOpen(eqModal)) closeEqModal();
     else openEqModal();
   } else if (e.key === 'i' || e.key === 'I') {
     toggleMiniPlayerMode();
@@ -8185,7 +8310,7 @@ function applySettings() {
   const c = settings.accentColor || '#ED5564';
   applyAccentColorVars(c);
   if (settings.dynamicTheme && state.currentTrack?.thumbnail) {
-    extractAlbumColors(upgradeCover(state.currentTrack.thumbnail, 800));
+    extractAlbumColors(upgradeCover(state.currentTrack.thumbnail, 120));
   }
 
   const blurOff = Boolean(settings.disableBlur) || !settings.liquidGlass;
@@ -8225,11 +8350,14 @@ function applySettings() {
     if (typeof renderQueue === 'function') renderQueue();
   }
 
+  const targetSink = settings.audioOutputId || '';
   if (typeof audio !== 'undefined' && typeof audio.setSinkId === 'function') {
-    const targetSink = settings.audioOutputId || '';
     if (audio.sinkId !== targetSink) {
       audio.setSinkId(targetSink).catch(() => {});
     }
+  }
+  if (typeof eqAudioCtx !== 'undefined' && eqAudioCtx && typeof eqAudioCtx.setSinkId === 'function') {
+    eqAudioCtx.setSinkId(targetSink).catch(() => {});
   }
 
   const npOverlay = document.getElementById('now-playing-fullscreen');
@@ -8551,19 +8679,43 @@ function initSettingsListeners() {
 
   const refreshAudioOutputs = async () => {
     const sel = document.getElementById('setting-audio-output');
-    if (!sel || !navigator.mediaDevices?.enumerateDevices) return;
+    if (!sel) return;
     try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const outputs = devices.filter(d => d.kind === 'audiooutput');
-      sel.innerHTML = '<option value="">System Default Output</option>';
+      await customElements.whenDefined('m3e-select').catch(() => {});
+      let outputs = [];
+      if (navigator.mediaDevices?.enumerateDevices) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        outputs = devices.filter(d => d.kind === 'audiooutput');
+      }
+
+      const frag = document.createDocumentFragment();
+      const defOpt = document.createElement('m3e-option');
+      defOpt.value = '';
+      defOpt.textContent = 'System Default Output';
+      frag.appendChild(defOpt);
+
+      const seenIds = new Set(['', 'default']);
       outputs.forEach((dev, idx) => {
-        if (!dev.deviceId || dev.deviceId === 'default') return;
-        const opt = document.createElement('option');
+        if (!dev.deviceId || seenIds.has(dev.deviceId)) return;
+        seenIds.add(dev.deviceId);
+        const opt = document.createElement('m3e-option');
         opt.value = dev.deviceId;
         opt.textContent = dev.label || `Audio Output ${idx + 1}`;
-        sel.appendChild(opt);
+        frag.appendChild(opt);
       });
-      sel.value = settings.audioOutputId || '';
+
+      sel.innerHTML = '';
+      sel.appendChild(frag);
+
+      const wanted = settings.audioOutputId || '';
+      const hasWanted = seenIds.has(wanted);
+      const nextVal = hasWanted ? wanted : '';
+      Array.from(sel.querySelectorAll('m3e-option')).forEach((opt) => {
+        opt.selected = opt.value === nextVal;
+      });
+      queueMicrotask(() => {
+        sel.value = nextVal;
+      });
     } catch (_) {}
   };
   refreshAudioOutputs();
@@ -8624,7 +8776,7 @@ function initSettingsListeners() {
   // Account Settings Actions
   document.getElementById('btn-settings-login')?.addEventListener('click', () => {
     if (loginModal) {
-      loginModal.style.display = 'flex';
+      openAppDialog(loginModal);
       setAuthTab('device');
     }
   });
@@ -8687,13 +8839,13 @@ function initSettingsListeners() {
 
   const shortcutsModal = document.getElementById('shortcuts-modal');
   document.getElementById('btn-show-shortcuts')?.addEventListener('click', () => {
-    if (shortcutsModal) shortcutsModal.style.display = 'flex';
+    openAppDialog(shortcutsModal);
   });
   document.getElementById('shortcuts-modal-close')?.addEventListener('click', () => {
-    if (shortcutsModal) shortcutsModal.style.display = 'none';
+    closeAppDialog(shortcutsModal);
   });
   shortcutsModal?.addEventListener('click', (e) => {
-    if (e.target === shortcutsModal) shortcutsModal.style.display = 'none';
+    if (e.target === shortcutsModal) closeAppDialog(shortcutsModal);
   });
 
   document.getElementById('btn-export-backup')?.addEventListener('click', () => {
@@ -9136,7 +9288,7 @@ function initLibraryBentoListeners() {
   });
 }
 
-setTimeout(() => syncDownloadedOfflineLibrary(), 2500);
+setTimeout(() => syncDownloadedOfflineLibrary(), 4200);
 window.addEventListener('online', () => {
   setTimeout(() => syncDownloadedOfflineLibrary(), 1500);
 });
@@ -9285,7 +9437,6 @@ function initAppUpdaterUI() {
 }
 
 async function init() {
-  initCustomSelects();
   loadSettings();
   initSettingsListeners();
   initLibraryBentoListeners();
@@ -9295,15 +9446,7 @@ async function init() {
     state.isShuffle = true;
   }
 
-  try {
-    const dlCfg = await window.api.getDownloadConfig();
-    if (dlCfg?.defaultDir) defaultDownloadDirCache = dlCfg.defaultDir;
-    if (dlCfg?.downloadDir && !settings.downloadPath) {
-      settings.downloadPath = dlCfg.downloadDir;
-    }
-    applySettings();
-  } catch (_) {}
-
+  applySettings();
   loadLocalLikedSongs();
   restorePersistentQueue();
   if (settings.permanentShuffle && !state.isShuffle) {
@@ -9313,20 +9456,48 @@ async function init() {
   }
   updateLibraryBentoCounts();
   refreshVisualFrame();
+
+  // Paint first frame cleanly before populating Home & running background sync
+  await new Promise((resolve) => requestAnimationFrame(() => resolve()));
   loadHomeFeed();
 
-  try {
-    const profile = await window.api.getAccountProfile();
-    updateAuthUI(profile);
-    if (profile?.isLoggedIn) {
-      syncLibrary();
+  // Defer Settings custom select DOM construction until browser is idle (or Settings opens)
+  const scheduleCustomSelects = () => initCustomSelects();
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(scheduleCustomSelects, { timeout: 600 });
+  } else {
+    setTimeout(scheduleCustomSelects, 180);
+  }
+
+  window.api.getDownloadConfig().then((dlCfg) => {
+    if (dlCfg?.defaultDir) defaultDownloadDirCache = dlCfg.defaultDir;
+    if (dlCfg?.downloadDir && !settings.downloadPath) {
+      settings.downloadPath = dlCfg.downloadDir;
+      const dlDisplay = document.getElementById('setting-download-path-display');
+      if (dlDisplay) dlDisplay.textContent = settings.downloadPath || defaultDownloadDirCache || 'Downloads/OpenTune';
     }
-  } catch (_) {}
+  }).catch(() => {});
+
+  // Stagger account + library sync so UI remains immediately interactive at open
+  setTimeout(async () => {
+    try {
+      const profile = await getSharedAccountProfile();
+      updateAuthUI(profile);
+      if (profile?.isLoggedIn) {
+        syncLibrary();
+      }
+    } catch (_) {}
+  }, 900);
+
+  // Asynchronous background discovery of downloaded playlists/cache after startup settles
+  setTimeout(() => {
+    loadPlaylists({ skipDiskScan: false }).catch(() => {});
+  }, 2800);
 
   // Periodic background real-time sync (every 90s + when window regains focus)
   setInterval(async () => {
     try {
-      const p = await window.api.getAccountProfile();
+      const p = await getSharedAccountProfile(true);
       if (p?.isLoggedIn) syncLibrary();
     } catch (_) {}
   }, 90000);

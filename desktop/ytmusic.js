@@ -4,7 +4,16 @@ const path = require('path');
 
 let ytInstance = null;
 let guestInstance = null;
+let ytInitPromise = null;
+let guestInitPromise = null;
+let libraryInflightPromise = null;
+let libraryCache = { data: null, fetchedAt: 0 };
+let accountProfileInflight = null;
 let currentCookie = '';
+
+function clearLibraryCache() {
+  libraryCache = { data: null, fetchedAt: 0 };
+}
 
 function getSessionFilePath() {
   let userDataDir = path.join(__dirname, '.session');
@@ -55,6 +64,7 @@ function saveSession({ cookie = '', credentials = null, profile = null } = {}) {
 }
 
 function clearSavedSession() {
+  clearLibraryCache();
   try {
     const file = getSessionFilePath();
     if (fs.existsSync(file)) {
@@ -66,65 +76,85 @@ function clearSavedSession() {
 }
 
 async function getGuestInnertube() {
-  if (!guestInstance) {
-    guestInstance = await Innertube.create({
+  if (guestInstance) return guestInstance;
+  if (!guestInitPromise) {
+    guestInitPromise = Innertube.create({
       cache: new UniversalCache(false)
+    }).then((inst) => {
+      guestInstance = inst;
+      return inst;
+    }).finally(() => {
+      guestInitPromise = null;
     });
   }
-  return guestInstance;
+  return await guestInitPromise;
 }
 
 async function getInnertube(cookie = null) {
   if (cookie !== null) {
     currentCookie = cookie;
     saveSession({ cookie: currentCookie, credentials: null });
-    ytInstance = await Innertube.create({
+    clearLibraryCache();
+    ytInstance = null;
+    ytInitPromise = Innertube.create({
       cookie: currentCookie,
       cache: new UniversalCache(false)
+    }).then((inst) => {
+      ytInstance = inst;
+      return inst;
+    }).finally(() => {
+      ytInitPromise = null;
     });
-    return ytInstance;
+    return await ytInitPromise;
   }
 
-  if (!ytInstance) {
-    const saved = loadSavedSession();
+  if (ytInstance) return ytInstance;
 
-    if (saved.cookie) {
-      currentCookie = saved.cookie;
-      try {
-        ytInstance = await Innertube.create({
-          cookie: currentCookie,
-          cache: new UniversalCache(false)
-        });
-        return ytInstance;
-      } catch (err) {
-        console.warn('Could not restore saved cookie session:', err.message);
-      }
-    }
+  if (!ytInitPromise) {
+    ytInitPromise = (async () => {
+      const saved = loadSavedSession();
 
-    if (saved.credentials) {
-      try {
-        ytInstance = await Innertube.create({
-          cache: new UniversalCache(false)
-        });
-        ytInstance.session.on('update-credentials', ({ credentials }) => {
-          if (credentials) saveSession({ credentials });
-        });
+      if (saved.cookie) {
+        currentCookie = saved.cookie;
         try {
-          await ytInstance.session.signIn(saved.credentials);
-        } catch (_) {
-          await ytInstance.session.oauth.init(saved.credentials);
+          ytInstance = await Innertube.create({
+            cookie: currentCookie,
+            cache: new UniversalCache(false)
+          });
+          return ytInstance;
+        } catch (err) {
+          console.warn('Could not restore saved cookie session:', err.message);
         }
-        return ytInstance;
-      } catch (err) {
-        console.warn('Could not restore saved oauth session:', err.message);
       }
-    }
 
-    // Default guest instance
-    ytInstance = await getGuestInnertube();
+      if (saved.credentials) {
+        try {
+          ytInstance = await Innertube.create({
+            cache: new UniversalCache(false)
+          });
+          ytInstance.session.on('update-credentials', ({ credentials }) => {
+            if (credentials) saveSession({ credentials });
+          });
+          try {
+            await ytInstance.session.signIn(saved.credentials);
+          } catch (_) {
+            await ytInstance.session.oauth.init(saved.credentials);
+          }
+          return ytInstance;
+        } catch (err) {
+          console.warn('Could not restore saved oauth session:', err.message);
+        }
+      }
+
+      // Default guest instance
+      ytInstance = await getGuestInnertube();
+      return ytInstance;
+    })().finally(() => {
+      ytInitPromise = null;
+    });
   }
 
-  return ytInstance;
+  return await ytInitPromise;
 }
 
 // Resilient wrapper: if an action fails due to 400/auth error or requests guest fallback, fall back to guest client
@@ -1789,37 +1819,49 @@ async function getExploreCategories() {
 }
 
 async function getAccountProfile() {
-  try {
-    const saved = loadSavedSession();
-    if (saved.profile && saved.profile.isLoggedIn) {
-      return saved.profile;
-    }
-
-    if (currentCookie || saved.cookie) {
-      const yt = await getInnertube();
-      try {
-        const info = await yt.account.getInfo();
-        if (info && (info.name || info.email)) {
-          return {
-            isLoggedIn: true,
-            name: info.name || 'YouTube User',
-            email: info.email || '',
-            avatar: info.thumbnails?.[0]?.url || 'assets/icon.png'
-          };
-        }
-      } catch (_) {}
-
-      return {
-        isLoggedIn: true,
-        name: 'Connected YouTube User',
-        email: '',
-        avatar: 'assets/icon.png'
-      };
-    }
-  } catch (err) {
-    console.warn('Account profile lookup note:', err.message);
+  const saved = loadSavedSession();
+  if (saved.profile && saved.profile.isLoggedIn) {
+    return saved.profile;
   }
-  return { isLoggedIn: false };
+
+  if (!(currentCookie || saved.cookie)) {
+    return { isLoggedIn: false };
+  }
+
+  if (!accountProfileInflight) {
+    accountProfileInflight = (async () => {
+      try {
+        const yt = await getInnertube();
+        try {
+          const info = await yt.account.getInfo();
+          if (info && (info.name || info.email)) {
+            const prof = {
+              isLoggedIn: true,
+              name: info.name || 'YouTube User',
+              email: info.email || '',
+              avatar: info.thumbnails?.[0]?.url || 'assets/icon.png'
+            };
+            saveSession({ profile: prof });
+            return prof;
+          }
+        } catch (_) {}
+
+        return {
+          isLoggedIn: true,
+          name: 'Connected YouTube User',
+          email: '',
+          avatar: 'assets/icon.png'
+        };
+      } catch (err) {
+        console.warn('Account profile lookup note:', err.message);
+        return { isLoggedIn: false };
+      }
+    })().finally(() => {
+      accountProfileInflight = null;
+    });
+  }
+
+  return await accountProfileInflight;
 }
 
 async function getLibrary() {
@@ -1831,98 +1873,114 @@ async function getLibrary() {
     return { playlists: [], likedSongs: [] };
   }
 
+  if (libraryCache.data && (Date.now() - libraryCache.fetchedAt) < 8000) {
+    return libraryCache.data;
+  }
+
+  if (libraryInflightPromise) {
+    return await libraryInflightPromise;
+  }
+
   const EXCLUDED_SYSTEM_IDS = new Set(['LM', 'VLLM', 'LL', 'VLLL', 'WL', 'VLWL', 'SE', 'VLSE']);
 
-  try {
-    const yt = await getInnertube();
-    let likedSongs = [];
-    const playlistsMap = new Map();
+  libraryInflightPromise = (async () => {
+    try {
+      const yt = await getInnertube();
+      let likedSongs = [];
+      const playlistsMap = new Map();
 
-    const addPlaylist = (pl) => {
-      if (!pl || !pl.id) return;
-      const cleanId = pl.id.startsWith('VL') ? pl.id.slice(2) : pl.id;
-      if (!cleanId || EXCLUDED_SYSTEM_IDS.has(cleanId) || EXCLUDED_SYSTEM_IDS.has(pl.id)) return;
-      if (!playlistsMap.has(cleanId)) {
-        playlistsMap.set(cleanId, { ...pl, id: cleanId });
-      }
-    };
-
-    if (hasCookie) {
-      try {
-        const liked = await yt.music.getPlaylist('LM');
-        let rawLiked = [...(liked.items || liked.contents || [])];
-        let page = liked;
-        let continuationCount = 0;
-        while (page && page.has_continuation && continuationCount < 50) {
-          try {
-            page = await page.getContinuation();
-            const nextBatch = page.items || page.contents || [];
-            if (nextBatch.length === 0) break;
-            rawLiked.push(...nextBatch);
-            continuationCount++;
-          } catch (_) {
-            break;
-          }
+      const addPlaylist = (pl) => {
+        if (!pl || !pl.id) return;
+        const cleanId = pl.id.startsWith('VL') ? pl.id.slice(2) : pl.id;
+        if (!cleanId || EXCLUDED_SYSTEM_IDS.has(cleanId) || EXCLUDED_SYSTEM_IDS.has(pl.id)) return;
+        if (!playlistsMap.has(cleanId)) {
+          playlistsMap.set(cleanId, { ...pl, id: cleanId });
         }
-        likedSongs = rawLiked.map(item => formatSongItem(item)).filter(Boolean);
-      } catch (e) {
-        console.warn('Liked songs fetch info:', e.message);
-      }
+      };
 
-      try {
-        const lib = await yt.music.getLibrary();
-        const raw = lib.playlists?.contents || lib.playlists || lib.sections?.[0]?.contents || [];
-        for (const p of raw) {
-          addPlaylist(formatPlaylistItem(p));
-        }
-      } catch (e) {
-        console.warn('YouTube Music library playlists fetch note:', e.message);
-      }
-
-      if (playlistsMap.size === 0) {
+      if (hasCookie) {
         try {
-          const mainLib = await yt.getLibrary();
-          const raw = mainLib.playlists?.contents || mainLib.playlists || [];
+          const liked = await yt.music.getPlaylist('LM');
+          let rawLiked = [...(liked.items || liked.contents || [])];
+          let page = liked;
+          let continuationCount = 0;
+          while (page && page.has_continuation && continuationCount < 50) {
+            try {
+              page = await page.getContinuation();
+              const nextBatch = page.items || page.contents || [];
+              if (nextBatch.length === 0) break;
+              rawLiked.push(...nextBatch);
+              continuationCount++;
+            } catch (_) {
+              break;
+            }
+          }
+          likedSongs = rawLiked.map(item => formatSongItem(item)).filter(Boolean);
+        } catch (e) {
+          console.warn('Liked songs fetch info:', e.message);
+        }
+
+        try {
+          const lib = await yt.music.getLibrary();
+          const raw = lib.playlists?.contents || lib.playlists || lib.sections?.[0]?.contents || [];
           for (const p of raw) {
             addPlaylist(formatPlaylistItem(p));
           }
         } catch (e) {
-          console.warn('Main YouTube library playlists fetch note:', e.message);
+          console.warn('YouTube Music library playlists fetch note:', e.message);
+        }
+
+        if (playlistsMap.size === 0) {
+          try {
+            const mainLib = await yt.getLibrary();
+            const raw = mainLib.playlists?.contents || mainLib.playlists || [];
+            for (const p of raw) {
+              addPlaylist(formatPlaylistItem(p));
+            }
+          } catch (e) {
+            console.warn('Main YouTube library playlists fetch note:', e.message);
+          }
         }
       }
-    }
 
-    // OAuth TV Device Auth (or fallback): fetch via client 'TV' which accepts TV OAuth credentials cleanly
-    if (!hasCookie || playlistsMap.size === 0) {
-      for (const browseId of ['FEmusic_liked_playlists', 'FElibrary', 'FEplaylist_aggregation']) {
+      // OAuth TV Device Auth (or fallback): fetch via client 'TV' which accepts TV OAuth credentials cleanly
+      if (!hasCookie || playlistsMap.size === 0) {
+        for (const browseId of ['FEmusic_liked_playlists', 'FElibrary', 'FEplaylist_aggregation']) {
+          try {
+            const tvRes = await yt.actions.execute('/browse', { browseId, client: 'TV' });
+            const tiles = collectNodesByKey(tvRes.data, 'tileRenderer');
+            for (const t of tiles) {
+              addPlaylist(parseTvPlaylistTile(t));
+            }
+          } catch (e) {
+            console.warn(`TV ${browseId} fetch note:`, e.message);
+          }
+        }
+      }
+
+      if ((!hasCookie || likedSongs.length === 0) && yt?.session?.logged_in) {
         try {
-          const tvRes = await yt.actions.execute('/browse', { browseId, client: 'TV' });
-          const tiles = collectNodesByKey(tvRes.data, 'tileRenderer');
-          for (const t of tiles) {
-            addPlaylist(parseTvPlaylistTile(t));
+          const vllmPl = await fetchTvPlaylistBrowse(yt, 'VLLM', 20);
+          if (vllmPl && Array.isArray(vllmPl.tracks) && vllmPl.tracks.length > 0) {
+            likedSongs = vllmPl.tracks;
           }
         } catch (e) {
-          console.warn(`TV ${browseId} fetch note:`, e.message);
+          console.warn('TV Liked Music (VLLM) fetch note:', e.message);
         }
       }
-    }
 
-    if ((!hasCookie || likedSongs.length === 0) && yt?.session?.logged_in) {
-      try {
-        const vllmPl = await fetchTvPlaylistBrowse(yt, 'VLLM', 20);
-        if (vllmPl && Array.isArray(vllmPl.tracks) && vllmPl.tracks.length > 0) {
-          likedSongs = vllmPl.tracks;
-        }
-      } catch (e) {
-        console.warn('TV Liked Music (VLLM) fetch note:', e.message);
-      }
+      const result = { playlists: Array.from(playlistsMap.values()), likedSongs };
+      libraryCache = { data: result, fetchedAt: Date.now() };
+      return result;
+    } catch (err) {
+      console.error('Error fetching library:', err.message);
+      return { playlists: [], likedSongs: [] };
     }
+  })().finally(() => {
+    libraryInflightPromise = null;
+  });
 
-    return { playlists: Array.from(playlistsMap.values()), likedSongs };
-  } catch (err) {
-    console.error('Error fetching library:', err.message);
-    return { playlists: [], likedSongs: [] };
-  }
+  return await libraryInflightPromise;
 }
 
 async function executeCloudPlaylistRequest(yt, apiPath, body) {

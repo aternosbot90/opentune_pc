@@ -17,6 +17,7 @@
     railSheet.replaceSync(`
       :host(:not(:is(:state(--compact), :--compact))) { width: 100% !important; display: block !important; }
       :host(:not(:is(:state(--compact), :--compact))) .base { width: 100% !important; align-items: stretch !important; }
+      :host(:is(:state(--compact), :--compact)) .base { gap: clamp(4px, 1.1vh, 10px) !important; row-gap: clamp(4px, 1.1vh, 10px) !important; padding-block: 4px !important; }
     `);
     itemSheet = new CSSStyleSheet();
     itemSheet.replaceSync(`
@@ -25,6 +26,9 @@
       :host(:not([orientation="vertical"])) .inner { width: 100% !important; justify-content: flex-start !important; }
       :host(:not([orientation="vertical"])) .indicator { width: 100% !important; margin-inline: 0 !important; }
       :host(:not([orientation="vertical"])) .base { width: 100% !important; justify-content: flex-start !important; }
+      :host([orientation="vertical"]) .base { gap: 0 !important; padding-block: 2px !important; min-height: 36px !important; }
+      :host([orientation="vertical"]) .outer { min-height: 36px !important; padding-block: 0 !important; }
+      :host([orientation="vertical"]) .inner { min-height: 36px !important; padding-block: 0 !important; }
     `);
   } catch (_) {}
 

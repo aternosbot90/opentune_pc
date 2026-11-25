@@ -45,14 +45,76 @@ const lyricsService = require('./lyrics');
 const ytMusic = require('./ytmusic');
 
 let autoUpdater = null;
-try {
-  const updaterModule = require('electron-updater');
-  autoUpdater = updaterModule.autoUpdater;
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.allowPrerelease = false;
-} catch (e) {
-  console.warn('electron-updater init notice:', e.message);
+let autoUpdaterInitialized = false;
+function initAutoUpdater() {
+  if (autoUpdaterInitialized) return autoUpdater;
+  autoUpdaterInitialized = true;
+  try {
+    const updaterModule = require('electron-updater');
+    autoUpdater = updaterModule.autoUpdater;
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.allowPrerelease = false;
+
+    autoUpdater.on('checking-for-update', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update-status', { status: 'checking' });
+      }
+    });
+
+    autoUpdater.on('update-available', (info) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update-status', {
+          status: 'available',
+          version: info.version,
+          releaseDate: info.releaseDate,
+          releaseNotes: info.releaseNotes
+        });
+      }
+    });
+
+    autoUpdater.on('update-not-available', (info) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update-status', {
+          status: 'not-available',
+          version: info?.version || app.getVersion()
+        });
+      }
+    });
+
+    autoUpdater.on('error', (err) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update-status', {
+          status: 'error',
+          error: err ? err.message : 'Unknown updater error'
+        });
+      }
+    });
+
+    autoUpdater.on('download-progress', (progressObj) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update-status', {
+          status: 'downloading',
+          percent: Math.round(progressObj.percent || 0),
+          transferred: progressObj.transferred,
+          total: progressObj.total,
+          bytesPerSecond: progressObj.bytesPerSecond
+        });
+      }
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update-status', {
+          status: 'downloaded',
+          version: info.version
+        });
+      }
+    });
+  } catch (e) {
+    console.warn('electron-updater init notice:', e.message);
+  }
+  return autoUpdater;
 }
 
 // Global safety net to prevent app from closing/crashing on unexpected async errors
@@ -90,6 +152,7 @@ function createMainWindow() {
     minWidth: 940,
     minHeight: 620,
     frame: false,
+    show: false,
     backgroundColor: '#0b0c0e',
     icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: {
@@ -100,6 +163,14 @@ function createMainWindow() {
       allowRunningInsecureContent: true
     }
   });
+
+  const revealWindow = () => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+  };
+  mainWindow.once('ready-to-show', revealWindow);
+  setTimeout(revealWindow, 1500);
 
   mainWindow.webContents.on('console-message', (event, ...rest) => {
     const level = (event && typeof event === 'object' && event.level !== undefined) ? event.level : (rest[0] || 0);
@@ -1622,6 +1693,28 @@ async function makeLocalTrackResponse(fullPath, videoId) {
   };
 }
 
+const fsp = fs.promises;
+const yieldEventLoop = () => new Promise((resolve) => setImmediate(resolve));
+
+async function safeStatSize(filePath) {
+  try {
+    const st = await fsp.stat(filePath);
+    return st.isFile() ? st.size : -1;
+  } catch (_) {
+    return -1;
+  }
+}
+
+async function runBatched(items, batchSize, worker) {
+  for (let i = 0; i < items.length; i += batchSize) {
+    const chunk = items.slice(i, i + batchSize);
+    await Promise.all(chunk.map(worker));
+    if (i + batchSize < items.length) {
+      await yieldEventLoop();
+    }
+  }
+}
+
 ipcMain.handle('check-local-track-file', async (_event, payload) => {
   const track = payload?.track;
   const customDir = payload?.downloadDir;
@@ -1638,7 +1731,11 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
   }
 
   const rootDir = resolveDownloadBaseDir(customDir);
-  if (!fs.existsSync(rootDir)) return { exists: false };
+  try {
+    await fsp.access(rootDir);
+  } catch (_) {
+    return { exists: false };
+  }
 
   const cleanArt = cleanArtistName(track.artist || 'Unknown Artist');
   const safeArtist = sanitizeFilename(cleanArt);
@@ -1650,59 +1747,54 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
     `${safeArtist} - ${safeTitle}`,
     `${rawSafeArtist} - ${safeTitle}`,
     `${safeTitle}`,
-    safeTitle,
     videoId
-  ];
+  ].filter(Boolean);
 
-  for (const name of candidateNames) {
-    const directFile = findExistingAudioFile(rootDir, name);
-    if (directFile) {
-      return await makeLocalTrackResponse(directFile, videoId);
+  const checkDirectAudioInDir = async (dir) => {
+    for (const name of candidateNames) {
+      for (const ext of exts) {
+        const p = path.join(dir, `${name}${ext}`);
+        if ((await safeStatSize(p)) > 32768) return p;
+      }
     }
-  }
+    return null;
+  };
+
+  const directRoot = await checkDirectAudioInDir(rootDir);
+  if (directRoot) return await makeLocalTrackResponse(directRoot, videoId);
 
   try {
-    const entries = fs.readdirSync(rootDir, { withFileTypes: true });
+    const entries = await fsp.readdir(rootDir, { withFileTypes: true });
     for (const ent of entries) {
       if (ent.isDirectory()) {
         const subDir = path.join(rootDir, ent.name);
-        for (const name of candidateNames) {
-          const subDirect = findExistingAudioFile(subDir, name);
-          if (subDirect) {
-            return await makeLocalTrackResponse(subDirect, videoId);
-          }
-        }
+        const subDirect = await checkDirectAudioInDir(subDir);
+        if (subDirect) return await makeLocalTrackResponse(subDirect, videoId);
+
         try {
-          const files = fs.readdirSync(subDir);
+          const files = await fsp.readdir(subDir);
           for (const file of files) {
             const lower = file.toLowerCase();
-            const hasExt = exts.some(e => lower.endsWith(e));
-            if (!hasExt) continue;
+            if (!exts.some(e => lower.endsWith(e))) continue;
             const idMatch = videoId.length > 4 && file.includes(videoId);
             const titleMatch = safeTitle.length > 3 && lower.includes(safeTitle.toLowerCase());
             if (idMatch || titleMatch) {
               const fullPath = path.join(subDir, file);
-              try {
-                if (fs.statSync(fullPath).size > 32768) {
-                  return await makeLocalTrackResponse(fullPath, videoId);
-                }
-              } catch (_) {}
+              if ((await safeStatSize(fullPath)) > 32768) {
+                return await makeLocalTrackResponse(fullPath, videoId);
+              }
             }
           }
         } catch (_) {}
       } else if (ent.isFile()) {
         const lower = ent.name.toLowerCase();
-        const hasExt = exts.some(e => lower.endsWith(e));
-        if (hasExt) {
-          const idMatch = videoId.length > 4 && ent.name.includes(videoId);
-          const titleMatch = safeTitle.length > 3 && lower.includes(safeTitle.toLowerCase());
-          if (idMatch || titleMatch) {
-            const fullPath = path.join(rootDir, ent.name);
-            try {
-              if (fs.statSync(fullPath).size > 32768) {
-                return await makeLocalTrackResponse(fullPath, videoId);
-              }
-            } catch (_) {}
+        if (!exts.some(e => lower.endsWith(e))) continue;
+        const idMatch = videoId.length > 4 && ent.name.includes(videoId);
+        const titleMatch = safeTitle.length > 3 && lower.includes(safeTitle.toLowerCase());
+        if (idMatch || titleMatch) {
+          const fullPath = path.join(rootDir, ent.name);
+          if ((await safeStatSize(fullPath)) > 32768) {
+            return await makeLocalTrackResponse(fullPath, videoId);
           }
         }
       }
@@ -1713,45 +1805,100 @@ ipcMain.handle('check-local-track-file', async (_event, payload) => {
 });
 
 ipcMain.handle('sync-offline-tracks', async (_event, tracks) => {
-  if (!Array.isArray(tracks)) return [];
+  if (!Array.isArray(tracks) || tracks.length === 0) return Array.isArray(tracks) ? tracks : [];
   const rootDir = resolveDownloadBaseDir();
   const { thumbs, meta } = getOfflineAssetDirs();
+  const imgExts = ['.jpg', '.jpeg', '.png', '.webp'];
 
-  return tracks.map(track => {
-    if (!track) return track;
+  // Single async pass to build O(1) lookup indexes instead of O(tracks * subdirs * exts) sync stats
+  const thumbFileSet = new Set();
+  const metaFileSet = new Set();
+  const rootImageMap = new Map();
+
+  try {
+    const thumbFiles = await fsp.readdir(thumbs);
+    for (const f of thumbFiles) thumbFileSet.add(f.toLowerCase());
+  } catch (_) {}
+
+  try {
+    const metaFiles = await fsp.readdir(meta);
+    for (const f of metaFiles) metaFileSet.add(f);
+  } catch (_) {}
+
+  const indexImagesInDir = async (dirPath) => {
+    try {
+      const files = await fsp.readdir(dirPath, { withFileTypes: true });
+      for (const f of files) {
+        if (!f.isFile()) continue;
+        const ext = path.extname(f.name).toLowerCase();
+        if (!imgExts.includes(ext)) continue;
+        const stem = path.basename(f.name, ext).toLowerCase();
+        if (!rootImageMap.has(stem)) {
+          rootImageMap.set(stem, toFileUrl(path.join(dirPath, f.name)));
+        }
+      }
+      return files;
+    } catch (_) {
+      return [];
+    }
+  };
+
+  const rootEntries = await indexImagesInDir(rootDir);
+  for (const ent of rootEntries) {
+    if (ent.isDirectory() && !ent.name.startsWith('.') && ent.name !== 'bin' && ent.name !== 'offline_assets') {
+      await indexImagesInDir(path.join(rootDir, ent.name));
+    }
+  }
+
+  const results = new Array(tracks.length);
+  await runBatched(tracks.map((track, idx) => ({ track, idx })), 40, async ({ track, idx }) => {
+    if (!track) {
+      results[idx] = track;
+      return;
+    }
     const videoId = String(track.id || track.videoId || '').trim();
     const cleanArt = cleanArtistName(track.artist || 'Unknown Artist');
     const safeArtist = sanitizeFilename(cleanArt);
     const safeTitle = sanitizeFilename(track.title || 'Track');
 
     let localThumb = '';
-    if (videoId) {
-      const userThumb = path.join(thumbs, `${videoId}.jpg`);
-      if (fs.existsSync(userThumb)) {
-        localThumb = toFileUrl(userThumb);
-      }
-    }
-
-    let cachedMeta = null;
-    if (videoId) {
-      const userMeta = path.join(meta, `${videoId}.json`);
-      if (fs.existsSync(userMeta)) {
-        try { cachedMeta = JSON.parse(fs.readFileSync(userMeta, 'utf8')); } catch (_) {}
-      }
-    }
-
-    if (!localThumb && fs.existsSync(rootDir)) {
-      const candidateNames = [`${safeArtist} - ${safeTitle}`, safeTitle, videoId];
-      for (const name of candidateNames) {
-        const directThumb = findExistingImageFile(rootDir, name, videoId);
-        if (directThumb) {
-          localThumb = directThumb;
+    if (videoId && thumbFileSet.has(`${videoId.toLowerCase()}.jpg`)) {
+      localThumb = toFileUrl(path.join(thumbs, `${videoId}.jpg`));
+    } else if (videoId) {
+      for (const ext of imgExts) {
+        if (thumbFileSet.has(`${videoId.toLowerCase()}${ext}`)) {
+          localThumb = toFileUrl(path.join(thumbs, `${videoId}${ext}`));
           break;
         }
       }
     }
 
-    return {
+    let cachedMeta = null;
+    if (videoId && metaFileSet.has(`${videoId}.json`)) {
+      try {
+        cachedMeta = JSON.parse(await fsp.readFile(path.join(meta, `${videoId}.json`), 'utf8'));
+      } catch (_) {}
+    }
+
+    if (!localThumb) {
+      const candidateKeys = [
+        `${safeArtist} - ${safeTitle}`.toLowerCase(),
+        safeTitle.toLowerCase(),
+        videoId.toLowerCase()
+      ].filter(Boolean);
+      for (const key of candidateKeys) {
+        const hit = rootImageMap.get(key);
+        if (hit) {
+          localThumb = hit;
+          break;
+        }
+      }
+      if (!localThumb) {
+        localThumb = rootImageMap.get('cover') || '';
+      }
+    }
+
+    results[idx] = {
       ...track,
       album: track.album || cachedMeta?.album || '',
       thumbnail: localThumb || track.thumbnail || 'assets/icon.png',
@@ -1759,6 +1906,8 @@ ipcMain.handle('sync-offline-tracks', async (_event, tracks) => {
       isOfflineAvailable: Boolean(localThumb || cachedMeta)
     };
   });
+
+  return results;
 });
 
 ipcMain.handle('cache-missing-offline-assets', async (_event, tracks) => {
@@ -1836,23 +1985,30 @@ ipcMain.handle('cache-track-audio', async (_e, track) => {
 
 ipcMain.handle('get-cached-tracks', async () => {
   const cacheDir = streamService.getAudioCacheDir ? streamService.getAudioCacheDir() : path.join(app.getPath('userData'), 'audio_cache');
-  if (!fs.existsSync(cacheDir)) return [];
   const { meta, thumbs } = getOfflineAssetDirs();
-  const tracks = [];
   try {
-    const files = fs.readdirSync(cacheDir);
-    for (const f of files) {
+    const [files, metaList, thumbList] = await Promise.all([
+      fsp.readdir(cacheDir).catch(() => []),
+      fsp.readdir(meta).catch(() => []),
+      fsp.readdir(thumbs).catch(() => [])
+    ]);
+    const metaSet = new Set(metaList);
+    const thumbSet = new Set(thumbList);
+    const audioFiles = files.filter(f => ['.m4a', '.opus', '.webm', '.mp3'].includes(path.extname(f).toLowerCase()));
+    const slots = new Array(audioFiles.length);
+
+    await runBatched(audioFiles.map((f, idx) => ({ f, idx })), 32, async ({ f, idx }) => {
       const ext = path.extname(f).toLowerCase();
-      if (!['.m4a', '.opus', '.webm', '.mp3'].includes(ext)) continue;
       const videoId = path.basename(f, ext);
-      const metaPath = path.join(meta, `${videoId}.json`);
       let trackData = null;
-      if (fs.existsSync(metaPath)) {
-        try { trackData = JSON.parse(fs.readFileSync(metaPath, 'utf8')); } catch (_) {}
+      if (metaSet.has(`${videoId}.json`)) {
+        try {
+          trackData = JSON.parse(await fsp.readFile(path.join(meta, `${videoId}.json`), 'utf8'));
+        } catch (_) {}
       }
-      const thumbPath = path.join(thumbs, `${videoId}.jpg`);
-      const localThumb = fs.existsSync(thumbPath) ? toFileUrl(thumbPath) : '';
-      tracks.push({
+      const thumbName = `${videoId}.jpg`;
+      const localThumb = thumbSet.has(thumbName) ? toFileUrl(path.join(thumbs, thumbName)) : '';
+      slots[idx] = {
         id: videoId,
         title: trackData?.title || videoId,
         artist: trackData?.artist || 'Unknown Artist',
@@ -1861,37 +2017,55 @@ ipcMain.handle('get-cached-tracks', async () => {
         thumbnail: localThumb || trackData?.thumbnail || 'assets/icon.png',
         localThumbnail: localThumb,
         isCachedOffline: true
-      });
-    }
+      };
+    });
+    return slots.filter(Boolean);
   } catch (_) {}
-  return tracks;
+  return [];
 });
 
 ipcMain.handle('scan-downloaded-playlists', async () => {
   const rootDir = resolveDownloadBaseDir();
-  if (!fs.existsSync(rootDir)) return [];
   const playlists = [];
-  const audioExts = ['.m4a', '.webm', '.opus', '.mp3', '.mp4', '.ogg'];
+  const audioExts = new Set(['.m4a', '.webm', '.opus', '.mp3', '.mp4', '.ogg']);
   const { meta, thumbs } = getOfflineAssetDirs();
 
   try {
-    const entries = fs.readdirSync(rootDir, { withFileTypes: true });
+    const entries = await fsp.readdir(rootDir, { withFileTypes: true }).catch(() => []);
+    if (entries.length === 0) return [];
+
+    // Pre-index offline metadata & thumbnails ONCE asynchronously: O(M) instead of O(N * M) sync reads
+    const [metaFiles, thumbFiles] = await Promise.all([
+      fsp.readdir(meta).catch(() => []),
+      fsp.readdir(thumbs).catch(() => [])
+    ]);
+    const thumbSet = new Set(thumbFiles);
+    const metaById = new Map();
+    const metaByLowerTitle = new Map();
+
+    const jsonFiles = metaFiles.filter(mf => mf.endsWith('.json'));
+    await runBatched(jsonFiles, 40, async (mf) => {
+      try {
+        const mData = JSON.parse(await fsp.readFile(path.join(meta, mf), 'utf8'));
+        const id = mData.id || path.basename(mf, '.json');
+        if (id) metaById.set(id, mData);
+        if (mData.title) metaByLowerTitle.set(String(mData.title).trim().toLowerCase(), { id, data: mData });
+      } catch (_) {}
+    });
+
     for (const ent of entries) {
       if (!ent.isDirectory()) continue;
       const folderName = ent.name;
-      // Skip system or internal asset folders
       if (folderName === 'bin' || folderName === 'offline_assets') continue;
       const subDir = path.join(rootDir, folderName);
-      const subFiles = fs.readdirSync(subDir);
-      const tracks = [];
+      const subFiles = await fsp.readdir(subDir).catch(() => []);
+      const candidateFiles = subFiles.filter(file => audioExts.has(path.extname(file).toLowerCase()));
+      const trackSlots = new Array(candidateFiles.length);
 
-      for (const file of subFiles) {
+      await runBatched(candidateFiles.map((file, idx) => ({ file, idx })), 40, async ({ file, idx }) => {
         const ext = path.extname(file).toLowerCase();
-        if (!audioExts.includes(ext)) continue;
         const fullAudioPath = path.join(subDir, file);
-        try {
-          if (fs.statSync(fullAudioPath).size < 30000) continue;
-        } catch (_) { continue; }
+        if ((await safeStatSize(fullAudioPath)) < 30000) return;
 
         const baseName = path.basename(file, ext);
         let title = baseName;
@@ -1902,37 +2076,28 @@ ipcMain.handle('scan-downloaded-playlists', async () => {
           title = parts.slice(1).join(' - ').trim();
         }
 
-        let matchedId = '';
-        const metaEntries = fs.existsSync(meta) ? fs.readdirSync(meta) : [];
-        for (const mf of metaEntries) {
-          if (!mf.endsWith('.json')) continue;
-          try {
-            const mData = JSON.parse(fs.readFileSync(path.join(meta, mf), 'utf8'));
-            if (mData.title === title || mData.id === baseName) {
-              matchedId = mData.id || path.basename(mf, '.json');
-              if (mData.artist) artist = mData.artist;
-              break;
-            }
-          } catch (_) {}
-        }
+        const matchedMeta = metaById.get(baseName) || metaByLowerTitle.get(title.toLowerCase())?.data || null;
+        const matchedId = matchedMeta?.id || metaByLowerTitle.get(title.toLowerCase())?.id || '';
+        if (matchedMeta?.artist) artist = matchedMeta.artist;
 
         const videoId = matchedId || `offline_${Buffer.from(file).toString('hex').slice(0, 11)}`;
-        const thumbFile = path.join(thumbs, `${videoId}.jpg`);
-        const localThumb = fs.existsSync(thumbFile) ? toFileUrl(thumbFile) : '';
+        const thumbName = `${videoId}.jpg`;
+        const localThumb = thumbSet.has(thumbName) ? toFileUrl(path.join(thumbs, thumbName)) : '';
 
-        tracks.push({
+        trackSlots[idx] = {
           id: videoId,
           title,
           artist,
           album: folderName,
-          duration: '',
+          duration: matchedMeta?.duration || '',
           thumbnail: localThumb || 'assets/icon.png',
           localThumbnail: localThumb,
           localFilePath: fullAudioPath,
           isDownloaded: true
-        });
-      }
+        };
+      });
 
+      const tracks = trackSlots.filter(Boolean);
       if (tracks.length > 0) {
         playlists.push({
           id: `local_dir_${Buffer.from(folderName).toString('hex')}`,
@@ -1945,6 +2110,7 @@ ipcMain.handle('scan-downloaded-playlists', async () => {
           isDownloaded: true
         });
       }
+      await yieldEventLoop();
     }
   } catch (err) {
     console.warn('Scan downloaded playlists notice:', err.message);
@@ -1953,71 +2119,14 @@ ipcMain.handle('scan-downloaded-playlists', async () => {
   return playlists;
 });
 
-// --- In-App Auto Updates (electron-updater for Windows & macOS) ---
-if (autoUpdater) {
-  autoUpdater.on('checking-for-update', () => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-status', { status: 'checking' });
-    }
-  });
-
-  autoUpdater.on('update-available', (info) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-status', {
-        status: 'available',
-        version: info.version,
-        releaseDate: info.releaseDate,
-        releaseNotes: info.releaseNotes
-      });
-    }
-  });
-
-  autoUpdater.on('update-not-available', (info) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-status', {
-        status: 'not-available',
-        version: info?.version || app.getVersion()
-      });
-    }
-  });
-
-  autoUpdater.on('error', (err) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-status', {
-        status: 'error',
-        error: err ? err.message : 'Unknown updater error'
-      });
-    }
-  });
-
-  autoUpdater.on('download-progress', (progressObj) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-status', {
-        status: 'downloading',
-        percent: Math.round(progressObj.percent || 0),
-        transferred: progressObj.transferred,
-        total: progressObj.total,
-        bytesPerSecond: progressObj.bytesPerSecond
-      });
-    }
-  });
-
-  autoUpdater.on('update-downloaded', (info) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-status', {
-        status: 'downloaded',
-        version: info.version
-      });
-    }
-  });
-}
-
+// --- In-App Auto Updates (electron-updater for Windows & macOS, initialized lazily) ---
 ipcMain.handle('get-app-version', () => app.getVersion());
 
 ipcMain.handle('check-for-updates', async () => {
-  if (!autoUpdater) return { success: false, error: 'Auto-updater is not available in development mode' };
+  const updater = initAutoUpdater();
+  if (!updater) return { success: false, error: 'Auto-updater is not available in development mode' };
   try {
-    const result = await autoUpdater.checkForUpdates();
+    const result = await updater.checkForUpdates();
     return { success: true, updateInfo: result?.updateInfo };
   } catch (err) {
     return { success: false, error: err.message };
@@ -2025,9 +2134,10 @@ ipcMain.handle('check-for-updates', async () => {
 });
 
 ipcMain.handle('download-update', async () => {
-  if (!autoUpdater) return { success: false, error: 'Auto-updater is not available in development mode' };
+  const updater = initAutoUpdater();
+  if (!updater) return { success: false, error: 'Auto-updater is not available in development mode' };
   try {
-    await autoUpdater.downloadUpdate();
+    await updater.downloadUpdate();
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
@@ -2035,8 +2145,9 @@ ipcMain.handle('download-update', async () => {
 });
 
 ipcMain.handle('install-update-now', () => {
-  if (autoUpdater) {
-    autoUpdater.quitAndInstall(false, true);
+  const updater = initAutoUpdater();
+  if (updater) {
+    updater.quitAndInstall(false, true);
     return true;
   }
   return false;
@@ -2090,8 +2201,9 @@ app.whenReady().then(() => {
 
   // Background auto-check for updates on startup (packaged builds only)
   setTimeout(() => {
-    if (autoUpdater && app.isPackaged) {
-      autoUpdater.checkForUpdates().catch(e => console.warn('Auto update check notice:', e.message));
+    const updater = initAutoUpdater();
+    if (updater && app.isPackaged) {
+      updater.checkForUpdates().catch(e => console.warn('Auto update check notice:', e.message));
     }
   }, 6000);
 
