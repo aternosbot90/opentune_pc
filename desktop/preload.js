@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('api', {
   getLibrary: () => ipcRenderer.invoke('get-library'),
   getTrackDetails: (videoId, meta = {}) => ipcRenderer.invoke('get-track-details', videoId, meta),
   getFastTrackStats: (videoId) => ipcRenderer.invoke('get-fast-track-stats', videoId),
+  getAnimatedCover: (track) => ipcRenderer.invoke('get-animated-cover', track),
   getTrackComments: (videoId) => ipcRenderer.invoke('get-track-comments', videoId),
   postTrackComment: (videoId, text) => ipcRenderer.invoke('post-track-comment', { videoId, text }),
 

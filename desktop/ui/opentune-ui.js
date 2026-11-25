@@ -49,11 +49,28 @@
     if (!rail) return;
     const isMobileViewport = window.innerWidth <= 820;
     const compact = !isMobileViewport && document.body.classList.contains('compact-sidebar');
-    rail.setAttribute('mode', compact ? 'compact' : 'expanded');
-    rail.querySelectorAll('m3e-nav-item').forEach((it) => {
-      if (compact) it.setAttribute('orientation', 'vertical'); else it.removeAttribute('orientation');
-    });
-    injectRailShadowStyles();
+    const targetMode = compact ? 'compact' : 'expanded';
+    rail.mode = targetMode;
+    rail.setAttribute('mode', targetMode);
+
+    const applyItemOrientation = () => {
+      rail.querySelectorAll('m3e-nav-item').forEach((it) => {
+        if (compact) {
+          it.orientation = 'vertical';
+          it.setAttribute('orientation', 'vertical');
+        } else {
+          it.orientation = 'horizontal';
+          it.removeAttribute('orientation');
+        }
+      });
+      injectRailShadowStyles();
+    };
+
+    applyItemOrientation();
+    if (rail.updateComplete && typeof rail.updateComplete.then === 'function') {
+      rail.updateComplete.then(applyItemOrientation).catch(() => {});
+    }
+    requestAnimationFrame(applyItemOrientation);
   }
   new MutationObserver(syncRailMode).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   window.addEventListener('resize', syncRailMode);

@@ -1272,6 +1272,9 @@ async function playTrack(track, queue = null, explicitIndex = null, options = {}
   if (requestToken !== state.playRequestToken || isVideoMode) return;
 
   if (localFile && localFile.exists && localFile.fileUrl) {
+    if (localFile.animatedCoverUrl) {
+      track.animatedCoverUrl = localFile.animatedCoverUrl;
+    }
     if (localFile.thumbnailUrl) {
       track.localThumbnail = localFile.thumbnailUrl;
       track.thumbnail = localFile.thumbnailUrl;
@@ -5638,7 +5641,7 @@ async function startBatchDownload(title, tracks, btnEl, statusEl) {
 
   if (statusEl) {
     statusEl.style.display = 'inline-flex';
-    statusEl.innerHTML = `Starting download... <button id="btn-cancel-active-download" class="btn-subtle btn-compact" style="margin-left:6px; color:#ff5252;">Cancel</button>`;
+    statusEl.innerHTML = `<span>Starting download...</span> <button id="btn-cancel-active-download" class="btn-cancel-download" type="button">Cancel</button>`;
     bindCancel();
   }
 
@@ -5653,7 +5656,7 @@ async function startBatchDownload(title, tracks, btnEl, statusEl) {
       btnEl.innerHTML = `<span class="spinner" style="width:14px;height:14px;display:inline-block;vertical-align:middle;"></span> Downloading (${data.downloadedCount}/${data.total})...`;
     }
     if (statusEl) {
-      statusEl.innerHTML = `<span>Downloading <strong>${escapeHtmlSafe(data.trackTitle)}</strong> (${data.downloadedCount}/${data.total})</span> <button id="btn-cancel-active-download" class="btn-subtle btn-compact" style="color:#ff5252;">Cancel</button>`;
+      statusEl.innerHTML = `<span>Downloading <strong>${escapeHtmlSafe(data.trackTitle)}</strong> (${data.downloadedCount}/${data.total})</span> <button id="btn-cancel-active-download" class="btn-cancel-download" type="button">Cancel</button>`;
       bindCancel();
     }
     if (pill) {
@@ -6887,6 +6890,10 @@ function openNowPlaying() {
 
 function closeNowPlaying() {
   if (!npFullscreen) return;
+  const animVid = document.getElementById('np-animated-cover');
+  if (animVid && !animVid.paused) {
+    try { animVid.pause(); } catch (_) {}
+  }
   document.body.classList.remove('now-playing-open');
   const bottomBar = document.querySelector('.player-bar');
   if (bottomBar) bottomBar.style.display = '';
@@ -6926,6 +6933,74 @@ document.getElementById('np-open-queue-drawer')?.addEventListener('click', () =>
   openDrawer('queue');
 });
 
+let animatedCoverReqToken = 0;
+let lastAnimatedTrackId = null;
+
+function clearAnimatedCoverUI() {
+  const animVid = document.getElementById('np-animated-cover');
+  if (!animVid) return;
+  animVid.classList.remove('ready');
+  animVid.style.display = 'none';
+  try { animVid.pause(); } catch (_) {}
+  if (animVid.getAttribute('src')) {
+    animVid.removeAttribute('src');
+    animVid.load();
+  }
+  lastAnimatedTrackId = null;
+}
+
+async function syncAnimatedCoverForTrack(track) {
+  const animVid = document.getElementById('np-animated-cover');
+  if (!animVid) return;
+  if (!track || !track.id || settings.animatedCovers === false || settings.reducedMotion || isVideoMode) {
+    clearAnimatedCoverUI();
+    return;
+  }
+
+  if (lastAnimatedTrackId === track.id && animVid.getAttribute('src')) {
+    animVid.style.display = 'block';
+    if (isNowPlayingOpen() && animVid.paused) {
+      animVid.play().catch(() => {});
+    }
+    return;
+  }
+
+  const reqToken = ++animatedCoverReqToken;
+  clearAnimatedCoverUI();
+  lastAnimatedTrackId = track.id;
+
+  let mediaUrl = track.animatedCoverUrl || '';
+  if (!mediaUrl && typeof window.api?.getAnimatedCover === 'function') {
+    try {
+      const res = await window.api.getAnimatedCover({
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        isDownloaded: Boolean(track.isDownloaded),
+        isCachedOffline: Boolean(track.isCachedOffline),
+        localFilePath: track.localFilePath || ''
+      });
+      mediaUrl = res?.url || '';
+    } catch (_) {}
+  }
+
+  if (reqToken !== animatedCoverReqToken || state.currentTrack?.id !== track.id || !mediaUrl || settings.animatedCovers === false || isVideoMode) {
+    return;
+  }
+
+  track.animatedCoverUrl = mediaUrl;
+  animVid.onerror = () => clearAnimatedCoverUI();
+  animVid.oncanplay = () => {
+    if (reqToken === animatedCoverReqToken && state.currentTrack?.id === track.id) {
+      animVid.classList.add('ready');
+    }
+  };
+  animVid.src = mediaUrl;
+  animVid.style.display = 'block';
+  animVid.play().catch(() => {});
+}
+
 function syncNowPlayingUI() {
   if (!state.currentTrack) return;
   const track = state.currentTrack;
@@ -6953,6 +7028,7 @@ function syncNowPlayingUI() {
       coverImg.src = hiResThumb;
     }
   }
+  syncAnimatedCoverForTrack(track);
   const npTotal = document.getElementById('np-time-total');
   if (npTotal && !(audio.duration > 0)) {
     npTotal.textContent = track.duration || '0:00';
@@ -8245,7 +8321,8 @@ const defaultSettings = {
   audioOutputId: '',
   showPlayedInQueue: false,
   pipAlwaysOnTop: true,
-  trackNotifications: false
+  trackNotifications: false,
+  animatedCovers: true
 };
 
 const PALETTE_SWATCH_COLORS = ['#ED5564', '#1DB954', '#00E5FF', '#8E44AD', '#FF9F1C', '#E74C3C', '#2ECC71', '#FF6B8B'];
@@ -8413,6 +8490,7 @@ function applySettings() {
     'setting-art-radius': settings.artRadius ?? 16,
     'setting-crop-thumbs': settings.cropThumbnails !== false,
     'setting-hide-player-thumb': !!settings.hidePlayerThumb,
+    'setting-animated-covers': settings.animatedCovers !== false,
     'setting-bar-expand': settings.clickBarToExpand !== false,
     'setting-slider-style': settings.sliderStyle || 'wavy',
     'setting-lyrics-anim': settings.lyricsAnim || 'apple',
@@ -8594,6 +8672,9 @@ function initSettingsListeners() {
     { id: 'setting-aod-show-progress', key: 'aodShowProgress', type: 'checked' },
     { id: 'setting-aod-show-controls', key: 'aodShowControls', type: 'checked' },
     { id: 'setting-compact-sidebar', key: 'compactSidebar', type: 'checked' },
+    { id: 'setting-animated-covers', key: 'animatedCovers', type: 'checked', after: () => {
+      if (typeof syncNowPlayingUI === 'function') syncNowPlayingUI();
+    } },
     { id: 'setting-bar-expand', key: 'clickBarToExpand', type: 'checked' },
     { id: 'setting-audio-output', key: 'audioOutputId', type: 'value' },
     { id: 'setting-show-played-queue', key: 'showPlayedInQueue', type: 'checked' },

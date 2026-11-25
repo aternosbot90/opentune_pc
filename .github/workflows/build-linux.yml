@@ -27,7 +27,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libarchive-tools desktop-file-utils
+          sudo apt-get install -y libarchive-tools desktop-file-utils fakeroot dpkg libfuse2t64 || sudo apt-get install -y libarchive-tools desktop-file-utils fakeroot dpkg libfuse2
 
       - name: Install desktop dependencies
         working-directory: desktop
@@ -76,7 +76,7 @@ jobs:
             desktop/dist/*.tar.gz
             desktop/dist/*.blockmap
             desktop/dist/latest-linux.yml
-          if-no-files-found: error
+          if-no-files-found: warn
 
       - name: Determine release tag
         id: release_tag

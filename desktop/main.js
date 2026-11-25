@@ -43,6 +43,7 @@ if (process.platform === 'darwin' || process.platform === 'linux') {
 const streamService = require('./stream');
 const lyricsService = require('./lyrics');
 const ytMusic = require('./ytmusic');
+const animatedCoverService = require('./animated-cover');
 
 let autoUpdater = null;
 let autoUpdaterInitialized = false;
@@ -1127,12 +1128,14 @@ function getOfflineAssetDirs() {
   const thumbs = path.join(base, 'offline_thumbnails');
   const lyrics = path.join(base, 'offline_lyrics');
   const meta = path.join(base, 'offline_metadata');
+  const animated = path.join(base, 'offline_animated_covers');
   try {
     if (!fs.existsSync(thumbs)) fs.mkdirSync(thumbs, { recursive: true });
     if (!fs.existsSync(lyrics)) fs.mkdirSync(lyrics, { recursive: true });
     if (!fs.existsSync(meta)) fs.mkdirSync(meta, { recursive: true });
+    if (!fs.existsSync(animated)) fs.mkdirSync(animated, { recursive: true });
   } catch (_) {}
-  return { thumbs, lyrics, meta };
+  return { thumbs, lyrics, meta, animated };
 }
 
 function parseDurationSec(dur) {
@@ -1471,20 +1474,102 @@ async function downloadAndCacheMetadata(track, destDir, baseName, extraInfo = {}
   return combinedMeta;
 }
 
+async function findExistingAnimatedCover(dir, baseName, videoId) {
+  const candidates = [];
+  if (dir && baseName) {
+    candidates.push(path.join(dir, `${baseName}.cover.mp4`));
+  }
+  if (videoId) {
+    const { animated } = getOfflineAssetDirs();
+    candidates.push(path.join(animated, `${videoId}.mp4`));
+  }
+  for (const p of candidates) {
+    if ((await safeStatSize(p)) > 30000) {
+      return toFileUrl(p);
+    }
+  }
+  return '';
+}
+
+async function downloadAndCacheAnimatedCover(track, destDir, baseName) {
+  const trackId = String(track?.id || track?.videoId || '').trim();
+  const { animated } = getOfflineAssetDirs();
+  const destMp4 = destDir && baseName ? path.join(destDir, `${baseName}.cover.mp4`) : null;
+  const userMp4 = trackId ? path.join(animated, `${trackId}.mp4`) : null;
+
+  if (destMp4 && (await safeStatSize(destMp4)) > 30000) {
+    if (userMp4 && (await safeStatSize(userMp4)) <= 0) {
+      try { await fsp.copyFile(destMp4, userMp4); } catch (_) {}
+    }
+    return toFileUrl(destMp4);
+  }
+  if (userMp4 && (await safeStatSize(userMp4)) > 30000) {
+    if (destMp4 && (await safeStatSize(destMp4)) <= 0) {
+      try { await fsp.copyFile(userMp4, destMp4); } catch (_) {}
+    }
+    return toFileUrl(userMp4);
+  }
+
+  try {
+    const mp4Url = await animatedCoverService.resolveAnimatedCoverUrl(track);
+    if (!mp4Url) return '';
+    const res = await fetchWithTimeout(mp4Url, { headers: DOWNLOAD_HTTP_HEADERS }, 20000);
+    if (!res.ok) return '';
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length <= 30000) return '';
+    if (destMp4) await fsp.writeFile(destMp4, buf);
+    if (userMp4) await fsp.writeFile(userMp4, buf);
+    return destMp4 ? toFileUrl(destMp4) : toFileUrl(userMp4);
+  } catch (_) {}
+  return '';
+}
+
+ipcMain.handle('get-animated-cover', async (_event, track) => {
+  if (!track) return { url: null, isLocal: false };
+  const videoId = String(track.id || track.videoId || '').trim();
+  const safeArt = cleanArtistName(track.artist || 'Unknown Artist');
+  const baseName = `${sanitizeFilename(safeArt)} - ${sanitizeFilename(track.title || 'Track')}`;
+
+  try {
+    const rootDir = resolveDownloadBaseDir();
+    const localUrl = await findExistingAnimatedCover(rootDir, baseName, videoId);
+    if (localUrl) {
+      return { url: localUrl, isLocal: true };
+    }
+  } catch (_) {}
+
+  try {
+    const mp4Url = await animatedCoverService.resolveAnimatedCoverUrl(track);
+    if (mp4Url) {
+      // If this track is downloaded/cached locally, also persist the animated cover for offline use
+      if (videoId && (track.isDownloaded || track.isCachedOffline || track.localFilePath)) {
+        const destDir = track.localFilePath ? path.dirname(track.localFilePath) : null;
+        downloadAndCacheAnimatedCover(track, destDir, baseName).catch(() => {});
+      }
+      return { url: mp4Url, isLocal: false };
+    }
+  } catch (_) {}
+
+  return { url: null, isLocal: false };
+});
+
 async function downloadAllTrackAssets(track, destDir, baseName, isPlaylist = false) {
   const audioResult = await downloadTrackAudioFile(track, destDir, baseName);
 
   let localThumbnail = '';
   let lyricsResult = null;
   let metadata = null;
+  let animatedCoverUrl = '';
 
   try {
-    const [thumbRes, lrcRes] = await Promise.all([
+    const [thumbRes, lrcRes, animRes] = await Promise.all([
       downloadAndCacheThumbnail(track, destDir, baseName, isPlaylist).catch(() => ''),
-      downloadAndCacheLyrics(track, destDir, baseName).catch(() => null)
+      downloadAndCacheLyrics(track, destDir, baseName).catch(() => null),
+      downloadAndCacheAnimatedCover(track, destDir, baseName).catch(() => '')
     ]);
     localThumbnail = thumbRes || '';
     lyricsResult = lrcRes || null;
+    animatedCoverUrl = animRes || '';
 
     metadata = await downloadAndCacheMetadata(track, destDir, baseName, {
       localThumbnail,
@@ -1498,6 +1583,7 @@ async function downloadAllTrackAssets(track, destDir, baseName, isPlaylist = fal
     filePath: audioResult.filePath,
     skipped: audioResult.skipped,
     localThumbnail,
+    animatedCoverUrl,
     lyrics: lyricsResult,
     metadata
   };
@@ -1676,6 +1762,7 @@ async function makeLocalTrackResponse(fullPath, videoId) {
   const dir = path.dirname(fullPath);
   const base = path.basename(fullPath, path.extname(fullPath));
   const { thumbUrl, lyricsObj, metaObj } = resolveAccompanyingAssets(dir, base, videoId);
+  const animatedCoverUrl = await findExistingAnimatedCover(dir, base, videoId).catch(() => '');
   let fileUrl = toFileUrl(fullPath);
   if (typeof streamService.getLocalFileStreamUrl === 'function') {
     try {
@@ -1687,6 +1774,7 @@ async function makeLocalTrackResponse(fullPath, videoId) {
     filePath: fullPath,
     fileUrl,
     thumbnailUrl: thumbUrl || null,
+    animatedCoverUrl: animatedCoverUrl || null,
     lyricsText: lyricsObj?.content || null,
     parsedLyrics: lyricsObj?.parsed || null,
     metadata: metaObj || null

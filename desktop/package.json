@@ -1,10 +1,11 @@
 {
   "name": "opentune-desktop",
   "productName": "OpenTune",
-  "version": "3.1.7",
+  "version": "3.1.8",
   "description": "OpenTune Desktop Music Client",
   "main": "main.js",
-  "author": "THROTTLEKILLZ",
+  "author": "THROTTLEKILLZ <aternosbot90@users.noreply.github.com>",
+  "homepage": "https://github.com/aternosbot90/opentune_pc",
   "license": "GPL-3.0",
   "scripts": {
     "start": "electron .",
@@ -101,7 +102,8 @@
     "linux": {
       "category": "Audio;Music;Player;",
       "icon": "assets/icon.png",
-      "maintainer": "THROTTLEKILLZ",
+      "maintainer": "THROTTLEKILLZ <aternosbot90@users.noreply.github.com>",
+      "synopsis": "OpenTune Desktop Music Client",
       "target": [
         {
           "target": "AppImage",
@@ -143,6 +145,7 @@
       "lyrics.js",
       "scrobbler.js",
       "ytmusic.js",
+      "animated-cover.js",
       "ui/**/*",
       "assets/**/*",
       "node_modules/**/*"
