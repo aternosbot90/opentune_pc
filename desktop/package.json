@@ -1,7 +1,7 @@
 {
   "name": "opentune-desktop",
   "productName": "OpenTune",
-  "version": "3.1.9",
+  "version": "3.1.10",
   "description": "OpenTune Desktop Music Client",
   "main": "main.js",
   "author": "THROTTLEKILLZ <aternosbot90@users.noreply.github.com>",
