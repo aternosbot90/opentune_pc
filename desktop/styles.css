@@ -81,7 +81,7 @@
   --text-muted: color-mix(in srgb, var(--md-sys-color-on-surface-variant) 78%, transparent);
 
   --sidebar-width: 260px;
-  --player-height: 88px;
+  --player-height: 94px;
   --header-height: 64px;
 
   --radius-xs: var(--md-sys-shape-corner-extra-small);
@@ -282,24 +282,36 @@ body {
   flex-direction: column;
 }
 
-/* Scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Minimalist Theme-Aware Scrollbars (no OS arrows) */
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 3px;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+*::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button:single-button,
+*::-webkit-scrollbar-button:start:decrement,
+*::-webkit-scrollbar-button:end:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
-::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--md-sys-color-on-surface) 18%, transparent);
+*::-webkit-scrollbar-corner {
+  background: transparent !important;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--md-sys-color-primary, var(--accent)) 38%, transparent);
   border-radius: 999px;
-  transition: background 0.2s ease;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--md-sys-color-on-surface) 36%, transparent);
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--md-sys-color-primary, var(--accent));
 }
 
 /* App Viewport */
@@ -1542,8 +1554,6 @@ body.drawer-open .track-col-album,
   overflow-y: auto;
   overflow-x: hidden;
   padding: 16px 14px;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--md-sys-color-on-surface) 22%, transparent) transparent;
 }
 
 .drawer-content::-webkit-scrollbar {
@@ -1916,7 +1926,8 @@ body.now-playing-open .player-bar {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
+  padding-top: 5px;
   flex: 2 1 auto;
   min-width: 280px;
   max-width: 580px;
@@ -2784,8 +2795,6 @@ m3e-dialog.login-modal-dialog .modal-body {
   position: relative;
   overflow-y: auto;
   flex-shrink: 0;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
 }
 
 .np-lyrics-container::-webkit-scrollbar,
@@ -2966,10 +2975,16 @@ m3e-dialog.login-modal-dialog .modal-body {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
   padding: 10px 14px;
+  border: none;
+  background: transparent;
   border-radius: var(--radius-sm);
   color: var(--text-primary);
+  font-family: inherit;
   font-size: 0.86rem;
+  font-weight: 500;
+  text-align: left;
   cursor: pointer;
   transition: var(--transition-fast);
 }
@@ -5250,8 +5265,6 @@ m3e-dialog.song-info-modal-card {
   flex-direction: column;
   gap: 14px;
   padding: 10px 8px 12px 2px;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--md-sys-color-on-surface) 22%, transparent) transparent;
 }
 
 .song-info-body::-webkit-scrollbar {
@@ -6135,8 +6148,26 @@ body.hide-home-chips .category-chips-bar { display: none; }
 
 /* ---- horizontal rows -------------------------------------------------------------------- */
 .h-scroll {
-  display: flex; gap: 18px; overflow-x: auto; padding: 4px 2px 14px; scroll-snap-type: x proximity;
-  scrollbar-width: thin; margin-bottom: 18px;
+  display: flex; gap: 18px; overflow-x: auto; padding: 4px 2px 12px; scroll-snap-type: x proximity;
+  margin-bottom: 18px;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-x pan-y;
+}
+.h-scroll::-webkit-scrollbar,
+.quick-grid::-webkit-scrollbar {
+  height: 3px;
+}
+.h-scroll.is-drag-scrolling,
+.quick-grid.is-drag-scrolling,
+.home-chips-row.is-drag-scrolling {
+  cursor: grabbing;
+}
+.h-scroll img,
+.quick-grid img {
+  -webkit-user-drag: none;
+  user-select: none;
 }
 .h-scroll > .music-card {
   flex: 0 0 184px;
@@ -6160,7 +6191,7 @@ body.hide-home-chips .category-chips-bar { display: none; }
 /* ---- quick picks (mobile-style 4-row tiles) --------------------------------------------- */
 .quick-grid {
   display: grid; grid-auto-flow: column; grid-template-rows: repeat(4, 68px); grid-auto-columns: minmax(300px, 380px);
-  gap: 8px 18px; overflow-x: auto; padding: 2px 2px 14px; margin-bottom: 26px; scrollbar-width: thin;
+  gap: 8px 18px; overflow-x: auto; padding: 2px 2px 12px; margin-bottom: 26px;
 }
 .quick-tile {
   display: flex; align-items: center; gap: 14px; padding: 6px 14px 6px 6px; border-radius: 20px; cursor: pointer; outline: none;
@@ -6708,8 +6739,6 @@ button.btn-subtle:hover {
 /* Add to Playlist Modal List & Items */
 #add-to-playlist-list {
   padding-right: 4px;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--md-sys-color-outline-variant) 70%, transparent) transparent;
 }
 #add-to-playlist-list::-webkit-scrollbar {
   width: 6px;
